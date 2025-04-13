@@ -1,169 +1,176 @@
 <script setup>
-import { ref, watchEffect } from 'vue'
-import { useTheme } from 'vuetify'
+import { ref, onMounted } from 'vue'
 
-// Vuetify Theme Management
-const theme = ref('light')
-const vuetifyTheme = useTheme()
+// Toggle password visibility
+const visible = ref(false)
 
-watchEffect(() => {
-  vuetifyTheme.global.name.value = theme.value
+// Form visibility state for animation
+const formVisible = ref(false)
+
+// Trigger animation on mount
+onMounted(() => {
+  setTimeout(() => {
+    formVisible.value = true
+  }, 200) // Slight delay for smooth effect
 })
-
-function toggleTheme() {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
-}
-
-// Sidebar state
-const drawer = ref(false)
-
-// Form state
-const form = ref()
-const agreement = ref(false)
-const dialog = ref(false)
-const email = ref('')
-const phone = ref('')
-const password = ref('')
-const userType = ref('')
-const isValid = ref(false)
-const isLoading = ref(false)
-
-// Validation rules
-const rules = {
-  required: (v) => !!v || 'This field is required',
-  email: (v) => !!(v || '').match(/^[^@]+@[^@]+\.[^@]+$/) || 'Enter a valid email',
-  length: (len) => (v) => (v || '').length >= len || `Must be at least ${len} characters`,
-  password: (v) =>
-    !!(v || '').match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*(_|[^\w])).+$/) ||
-    'Password must contain an uppercase letter, a number, and a special character',
-}
-
-// Reset form
-function resetForm() {
-  email.value = ''
-  phone.value = ''
-  password.value = ''
-  userType.value = ''
-  agreement.value = false
-  dialog.value = false
-  isValid.value = false
-}
 </script>
 
 <template>
-  <v-app :theme="theme">
-    <!-- App Bar -->
-    <v-app-bar color="primary" density="compact">
-      <!-- Menu Button (Opens Sidebar) -->
-      <v-btn icon @click="drawer = !drawer">
-        <v-icon>mdi-menu</v-icon>
-      </v-btn>
-      <v-spacer></v-spacer>
-      <!-- Theme Toggle -->
-      <v-btn icon @click="toggleTheme">
-        <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-      </v-btn>
-    </v-app-bar>
+  <v-app>
+    <v-container fluid class="signup-container">
+      <v-row class="signup-row">
+        <!-- ✅ Left Side - Scrollable Sign-Up Form -->
+        <v-col cols="12" md="6" class="form-section">
+          <v-card
+            class="signup-card"
+            :class="{ 'animate-form': formVisible }"
+          >
+            <v-card-title class="text-h5 text-center text-primary">Sign Up</v-card-title>
+            <v-card-text>
+              <!-- Email -->
+              <div class="text-subtitle-1 text-dark">Email Address</div>
+              <v-text-field
+                density="compact"
+                placeholder="Enter your email"
+                prepend-inner-icon="mdi-email-outline"
+                variant="outlined"
+                class="custom-input"
+              ></v-text-field>
 
-    <!-- Sidebar (Temporary Drawer) -->
-    <v-navigation-drawer v-model="drawer" temporary app>
-      <v-list density="compact">
-        <v-list-item prepend-icon="mdi-home" title="Home" to="/"></v-list-item>
-        <v-list-item prepend-icon="mdi-account" title="Profile"></v-list-item>
-        <v-list-item prepend-icon="mdi-settings" title="Settings"></v-list-item>
-        <v-divider></v-divider>
-        <v-list-item prepend-icon="mdi-logout" title="Logout"></v-list-item>
-      </v-list>
-    </v-navigation-drawer>
+              <!-- Phone Number -->
+              <div class="text-subtitle-1 text-dark">Phone Number</div>
+              <v-text-field
+                density="compact"
+                placeholder="Enter your phone number"
+                prepend-inner-icon="mdi-phone-outline"
+                variant="outlined"
+                class="custom-input"
+              ></v-text-field>
 
-    <v-container class="fill-height d-flex flex-column align-center justify-start">
-      <!-- Sign Up Title -->
-      <div class="w-100 px-4 mt-12">
-        <h2 class="text-h4 font-weight-bold text-left" style="color: #333; font-family: 'Roboto', sans-serif;">
-          Sign Up
-        </h2>
-      </div>
+              <!-- Password -->
+              <div class="text-subtitle-1 text-dark">Password</div>
+              <v-text-field
+                v-model="password"
+                :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
+                :type="visible ? 'text' : 'password'"
+                density="compact"
+                placeholder="Create a strong password"
+                prepend-inner-icon="mdi-lock-outline"
+                variant="outlined"
+                class="custom-input"
+                @click:append-inner="visible = !visible"
+              ></v-text-field>
 
-      <!-- Form Box (Unchanged & Lowered for Space) -->
-      <v-card class="mx-auto px-5 py-6 mt-6" elevation="10" style="max-width: 500px">
-        <div class="d-flex justify-center mb-5">
-          <v-img src="/your-logo.png" max-height="80" contain></v-img>
-        </div>
+              <!-- User Type Selection -->
+              <div class="text-subtitle-1 text-dark">User Type</div>
+              <v-select
+                :items="['Admin', 'Moderator', 'Staff']"
+                placeholder="Select your role"
+                prepend-inner-icon="mdi-account-outline"
+                variant="outlined"
+                class="custom-input"
+              ></v-select>
 
-        <v-form ref="form" v-model="isValid" class="mt-2">
-          <!-- Email First -->
-          <v-text-field
-            v-model="email"
-            :rules="[rules.required, rules.email]"
-            color="primary"
-            label="Email Address"
-            type="email"
-            variant="outlined"
-          ></v-text-field>
+              <!-- Terms & Agreement Checkbox -->
+              <v-checkbox class="text-dark">
+                <template v-slot:label>
+                  <span class="text-dark">
+                    I agree to the
+                    <a class="text-primary text-decoration-none" href="#">Terms & Privacy Policy</a>
+                  </span>
+                </template>
+              </v-checkbox>
 
-          <!-- Phone Number Second -->
-          <v-text-field
-            v-model="phone"
-            :rules="[rules.required]"
-            color="primary"
-            label="Phone Number"
-            type="tel"
-            variant="outlined"
-          ></v-text-field>
+              <!-- ✅ Sign Up Button -->
+              <v-btn color="primary" size="large" variant="tonal" block>
+                Sign Up
+              </v-btn>
 
-          <!-- Password Third -->
-          <v-text-field
-            v-model="password"
-            :rules="[rules.required, rules.password, rules.length(6)]"
-            color="primary"
-            counter="6"
-            label="Password"
-            type="password"
-            variant="outlined"
-          ></v-text-field>
+              <!-- ✅ Already Have an Account? -->
+              <v-card-text class="text-center mt-4">
+                <RouterLink class="router-link text-primary" to="/login">
+                  Already have an account? Log in <v-icon icon="mdi-chevron-right"></v-icon>
+                </RouterLink>
+              </v-card-text>
+            </v-card-text>
+          </v-card>
+        </v-col>
 
-          <!-- User Type Last -->
-          <v-select
-            v-model="userType"
-            :rules="[rules.required]"
-            :items="['Admin', 'Moderator', 'Staff']"
-            color="primary"
-            label="User Type"
-            variant="outlined"
-          ></v-select>
-
-          <v-checkbox v-model="agreement" :rules="[rules.required]" color="primary">
-            <template v-slot:label>
-              I agree to the&nbsp;
-              <a href="#" @click.stop.prevent="dialog = true">Terms of Service</a>
-              &nbsp;and&nbsp;
-              <a href="#" @click.stop.prevent="dialog = true">Privacy Policy</a>*
-            </template>
-          </v-checkbox>
-
-          <v-divider class="my-4"></v-divider>
-
-          <v-card-actions>
-            <v-btn variant="outlined" @click="resetForm()">Clear</v-btn>
-            <v-spacer></v-spacer>
-            <v-btn :disabled="!isValid" :loading="isLoading" color="primary">Submit</v-btn>
-          </v-card-actions>
-        </v-form>
-      </v-card>
+        <!-- ✅ Right Side - Fixed Background Image -->
+        <v-col cols="12" md="6" class="image-section"></v-col>
+      </v-row>
     </v-container>
-
-    <!-- Terms of Service Dialog -->
-    <v-dialog v-model="dialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h5 bg-grey-lighten-3">Legal</v-card-title>
-        <v-card-text> Please review our Terms of Service and Privacy Policy. </v-card-text>
-        <v-divider></v-divider>
-        <v-card-actions>
-          <v-btn variant="text" @click="agreement = false; dialog = false"> No </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" variant="tonal" @click="agreement = true; dialog = false"> Yes </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-app>
 </template>
+
+<style scoped>
+/* ✅ Fullscreen Container */
+.signup-container {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ✅ Left Side - Full Height Scrollable Sign-Up Form */
+.form-section {
+  height: 100vh;
+  overflow-y: auto;
+  padding: 40px;
+  background: #80919e; /* ✅ Light Gray for a clean professional look */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* ✅ Floating Sign-Up Card */
+.signup-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 30px;
+  border-radius: 12px;
+  background: white; /* ✅ Changed to White for Professional Look */
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1); /* ✅ Subtle Shadow for depth */
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+/* ✅ Triggered Animation */
+.animate-form {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ✅ Right Side - Fullscreen Background Image */
+.image-section {
+  height: 100vh;
+  background: url('@/assets/signup-bg.jpg') no-repeat center center;
+  background-size: cover;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 50%;
+}
+
+/* ✅ Custom Input Fields */
+.custom-input :deep(input) {
+  color: #333 !important; /* ✅ Dark Gray for readability */
+}
+
+.custom-input :deep(::placeholder) {
+  color: rgba(0, 0, 0, 0.5) !important; /* ✅ Subtle Gray Placeholder */
+}
+
+/* ✅ Prevents color change & removes underline from buttons and links */
+.router-link {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.router-link:hover,
+.router-link:focus,
+.router-link:active {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+</style>
