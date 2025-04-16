@@ -1,20 +1,26 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { requiredValidator, emailValidator } from '@/utils/validators'
+import { supabase, formActionDefault } from '@/utils/supabase.js'
 
-// States
+// UI states
 const visible = ref(false)
 const formVisible = ref(false)
 const refVForm = ref()
 
-const formData = ref({
+const formDataDefault = {
   email: '',
   phone: '',
   password: '',
   agreed: false,
-  // Optional: you can hardcode this if needed for backend
   role: 'Admin',
-})
+}
+
+const formData = ref({ ...formDataDefault })
+const formAction = ref({ ...formActionDefault })
+
+const showSuccessAlert = ref(false)
+const showErrorAlert = ref(false)
 
 // Animation trigger
 onMounted(() => {
@@ -24,20 +30,59 @@ onMounted(() => {
 })
 
 // Validators
-const phoneValidator = (value) => {
+const phoneValidator = value => {
   return /^\d{7,15}$/.test(value) || 'Enter a valid phone number'
 }
 
-const passwordValidator = (value) => {
+const passwordValidator = value => {
   return (value && value.length >= 6) || 'Password must be at least 6 characters'
 }
 
-// Submit
+// Submit Handler
 const onFormSubmit = () => {
-  refVForm.value?.validate().then(({ valid }) => {
+  refVForm.value?.validate().then(async ({ valid }) => {
     if (valid) {
-      console.log('Admin signup data:', formData.value)
-      // API or Supabase call goes here
+      try {
+        formAction.value.formProcess = true
+        formAction.value.formErrorMessage = ''
+        formAction.value.formSuccessMessage = ''
+
+        const { error } = await supabase.auth.signUp({
+          email: formData.value.email,
+          password: formData.value.password,
+          options: {
+            data: {
+              phone: formData.value.phone,
+              role: formData.value.role,
+            },
+          },
+        })
+
+        if (error) throw error
+
+        // Success
+        formAction.value.formSuccessMessage = 'Registration successful!'
+        showSuccessAlert.value = true
+
+        // Clear form
+        Object.assign(formData.value, { ...formDataDefault })
+        refVForm.value.resetValidation()
+
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => {
+          showSuccessAlert.value = false
+        }, 5000)
+      } catch (err) {
+        formAction.value.formErrorMessage = err.message
+        showErrorAlert.value = true
+
+        // Auto-hide error message after 5 seconds
+        setTimeout(() => {
+          showErrorAlert.value = false
+        }, 5000)
+      } finally {
+        formAction.value.formProcess = false
+      }
     }
   })
 }
@@ -45,9 +90,35 @@ const onFormSubmit = () => {
 
 <template>
   <v-app>
+    <!-- ✅ Alerts -->
+    <v-alert
+      v-if="formAction.formSuccessMessage && showSuccessAlert"
+      :text="formAction.formSuccessMessage"
+      title="Success!"
+      type="success"
+      variant="tonal"
+      density="compact"
+      border="start"
+      closable
+      @click:close="showSuccessAlert = false"
+    />
+
+    <v-alert
+      v-if="formAction.formErrorMessage && showErrorAlert"
+      :text="formAction.formErrorMessage"
+      title="Ooops!"
+      type="error"
+      variant="tonal"
+      density="compact"
+      border="start"
+      closable
+      @click:close="showErrorAlert = false"
+    />
+
+    <!-- ✅ Main Layout -->
     <v-container fluid class="signup-container">
       <v-row class="signup-row">
-        <!-- ✅ Left Side - Admin Sign-Up Form -->
+        <!-- Left Side: Sign-Up Form -->
         <v-col cols="12" md="6" class="form-section">
           <v-card class="signup-card" :class="{ 'animate-form': formVisible }">
             <v-card-title class="text-h5 text-center text-primary">Admin Sign Up</v-card-title>
@@ -102,15 +173,20 @@ const onFormSubmit = () => {
                   <template v-slot:label>
                     <span class="text-dark">
                       I agree to the
-                      <a class="text-primary text-decoration-none" href="#"
-                        >Terms & Privacy Policy</a
-                      >
+                      <a class="text-primary text-decoration-none" href="#">Terms & Privacy Policy</a>
                     </span>
                   </template>
                 </v-checkbox>
 
                 <!-- Submit Button -->
-                <v-btn type="submit" color="primary" size="large" variant="tonal" block>
+                <v-btn
+                  type="submit"
+                  color="primary"
+                  size="large"
+                  variant="tonal"
+                  block
+                  :loading="formAction.formProcess"
+                >
                   Sign Up
                 </v-btn>
 
@@ -125,7 +201,7 @@ const onFormSubmit = () => {
           </v-card>
         </v-col>
 
-        <!-- ✅ Right Side - Background Image -->
+        <!-- Right Side: Background -->
         <v-col cols="12" md="6" class="image-section"></v-col>
       </v-row>
     </v-container>
@@ -137,6 +213,10 @@ const onFormSubmit = () => {
   height: 100vh;
   display: flex;
   overflow: hidden;
+}
+
+.signup-row {
+  width: 100%;
 }
 
 .form-section {

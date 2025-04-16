@@ -4,12 +4,10 @@ import { ref } from 'vue'
 // Sidebar state
 const drawer = ref(false)
 
-// Navbar Links
+// Navbar Links (Messages & About Us removed)
 const links = [
   { title: 'Dashboard', path: '/' },
-  { title: 'Messages', path: '/messages' },
   { title: 'Profile', path: '/profile' },
-  { title: 'About Us', path: '/aboutus' },
   { title: 'User Management', path: 'users'},
 ]
 
@@ -120,7 +118,7 @@ const sidebarItems = [
           </v-col>
         </v-row>
 
-        <!-- Replaced Analytics Panel -->
+        <!-- AR Navigation Metrics -->
         <v-row>
           <v-col cols="12">
             <v-card class="pa-4">
@@ -174,7 +172,6 @@ const sidebarItems = [
             <v-card class="pa-4">
               <v-card-title>Deploy VR Experience</v-card-title>
               <v-card-text>
-                <!-- Placeholder for your Supabase/VR integration -->
                 <v-file-input
                   label="Upload VR Scene"
                   accept=".glb,.gltf,.fbx"
