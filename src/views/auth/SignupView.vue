@@ -1,169 +1,280 @@
 <script setup>
-import { ref, watchEffect } from 'vue'
-import { useTheme } from 'vuetify'
+import { ref, onMounted } from 'vue'
+import { requiredValidator, emailValidator } from '@/utils/validators'
+import { supabase, formActionDefault } from '@/utils/supabase.js'
 
-// Vuetify Theme Management
-const theme = ref('light')
-const vuetifyTheme = useTheme()
+// UI states
+const visible = ref(false)
+const formVisible = ref(false)
+const refVForm = ref()
 
-watchEffect(() => {
-  vuetifyTheme.global.name.value = theme.value
+const formDataDefault = {
+  email: '',
+  phone: '',
+  password: '',
+  agreed: false,
+  role: 'Admin',
+}
+
+const formData = ref({ ...formDataDefault })
+const formAction = ref({ ...formActionDefault })
+
+const showSuccessAlert = ref(false)
+const showErrorAlert = ref(false)
+
+// Animation trigger
+onMounted(() => {
+  setTimeout(() => {
+    formVisible.value = true
+  }, 200)
 })
 
-function toggleTheme() {
-  theme.value = theme.value === 'light' ? 'dark' : 'light'
+// Validators
+const phoneValidator = value => {
+  return /^\d{7,15}$/.test(value) || 'Enter a valid phone number'
 }
 
-// Sidebar state
-const drawer = ref(false)
-
-// Form state
-const form = ref()
-const agreement = ref(false)
-const dialog = ref(false)
-const email = ref('')
-const phone = ref('')
-const password = ref('')
-const userType = ref('')
-const isValid = ref(false)
-const isLoading = ref(false)
-
-// Validation rules
-const rules = {
-  required: (v) => !!v || 'This field is required',
-  email: (v) => !!(v || '').match(/^[^@]+@[^@]+\.[^@]+$/) || 'Enter a valid email',
-  length: (len) => (v) => (v || '').length >= len || `Must be at least ${len} characters`,
-  password: (v) =>
-    !!(v || '').match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*(_|[^\w])).+$/) ||
-    'Password must contain an uppercase letter, a number, and a special character',
+const passwordValidator = value => {
+  return (value && value.length >= 6) || 'Password must be at least 6 characters'
 }
 
-// Reset form
-function resetForm() {
-  email.value = ''
-  phone.value = ''
-  password.value = ''
-  userType.value = ''
-  agreement.value = false
-  dialog.value = false
-  isValid.value = false
+// Submit Handler
+const onFormSubmit = () => {
+  refVForm.value?.validate().then(async ({ valid }) => {
+    if (valid) {
+      try {
+        formAction.value.formProcess = true
+        formAction.value.formErrorMessage = ''
+        formAction.value.formSuccessMessage = ''
+
+        const { error } = await supabase.auth.signUp({
+          email: formData.value.email,
+          password: formData.value.password,
+          options: {
+            data: {
+              phone: formData.value.phone,
+              role: formData.value.role,
+            },
+          },
+        })
+
+        if (error) throw error
+
+        // Success
+        formAction.value.formSuccessMessage = 'Registration successful!'
+        showSuccessAlert.value = true
+
+        // Clear form
+        Object.assign(formData.value, { ...formDataDefault })
+        refVForm.value.resetValidation()
+
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => {
+          showSuccessAlert.value = false
+        }, 5000)
+      } catch (err) {
+        formAction.value.formErrorMessage = err.message
+        showErrorAlert.value = true
+
+        // Auto-hide error message after 5 seconds
+        setTimeout(() => {
+          showErrorAlert.value = false
+        }, 5000)
+      } finally {
+        formAction.value.formProcess = false
+      }
+    }
+  })
 }
 </script>
 
 <template>
-  <v-app :theme="theme">
-    <!-- App Bar -->
-    <v-app-bar color="primary" density="compact">
-      <!-- Menu Button (Opens Sidebar) -->
-      <v-btn icon @click="drawer = !drawer">
-        <v-icon>mdi-menu</v-icon>
-      </v-btn>
-      <v-spacer></v-spacer>
-      <!-- Theme Toggle -->
-      <v-btn icon @click="toggleTheme">
-        <v-icon>{{ theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-      </v-btn>
-    </v-app-bar>
+  <v-app>
+    <!-- ✅ Alerts -->
+    <v-alert
+      v-if="formAction.formSuccessMessage && showSuccessAlert"
+      :text="formAction.formSuccessMessage"
+      title="Success!"
+      type="success"
+      variant="tonal"
+      density="compact"
+      border="start"
+      closable
+      @click:close="showSuccessAlert = false"
+    />
 
-    <!-- Sidebar (Temporary Drawer) -->
-    <v-navigation-drawer v-model="drawer" temporary app>
-      <v-list density="compact">
-        <v-list-item prepend-icon="mdi-home" title="Home" to="/"></v-list-item>
-        <v-list-item prepend-icon="mdi-account" title="Profile"></v-list-item>
-        <v-list-item prepend-icon="mdi-settings" title="Settings"></v-list-item>
-        <v-divider></v-divider>
-        <v-list-item prepend-icon="mdi-logout" title="Logout"></v-list-item>
-      </v-list>
-    </v-navigation-drawer>
+    <v-alert
+      v-if="formAction.formErrorMessage && showErrorAlert"
+      :text="formAction.formErrorMessage"
+      title="Ooops!"
+      type="error"
+      variant="tonal"
+      density="compact"
+      border="start"
+      closable
+      @click:close="showErrorAlert = false"
+    />
 
-    <v-container class="fill-height d-flex flex-column align-center justify-start">
-      <!-- Sign Up Title -->
-      <div class="w-100 px-4 mt-12">
-        <h2 class="text-h4 font-weight-bold text-left" style="color: #333; font-family: 'Roboto', sans-serif;">
-          Sign Up
-        </h2>
-      </div>
+    <!-- ✅ Main Layout -->
+    <v-container fluid class="signup-container">
+      <v-row class="signup-row">
+        <!-- Left Side: Sign-Up Form -->
+        <v-col cols="12" md="6" class="form-section">
+          <v-card class="signup-card" :class="{ 'animate-form': formVisible }">
+            <v-card-title class="text-h5 text-center text-primary">Admin Sign Up</v-card-title>
 
-      <!-- Form Box (Unchanged & Lowered for Space) -->
-      <v-card class="mx-auto px-5 py-6 mt-6" elevation="10" style="max-width: 500px">
-        <div class="d-flex justify-center mb-5">
-          <v-img src="/your-logo.png" max-height="80" contain></v-img>
-        </div>
+            <v-form ref="refVForm" @submit.prevent="onFormSubmit">
+              <v-card-text>
+                <!-- Email -->
+                <div class="text-subtitle-1 text-dark">Email Address</div>
+                <v-text-field
+                  v-model="formData.email"
+                  density="compact"
+                  placeholder="Enter your email"
+                  prepend-inner-icon="mdi-email-outline"
+                  variant="outlined"
+                  class="custom-input"
+                  :rules="[requiredValidator, emailValidator]"
+                />
 
-        <v-form ref="form" v-model="isValid" class="mt-2">
-          <!-- Email First -->
-          <v-text-field
-            v-model="email"
-            :rules="[rules.required, rules.email]"
-            color="primary"
-            label="Email Address"
-            type="email"
-            variant="outlined"
-          ></v-text-field>
+                <!-- Phone Number -->
+                <div class="text-subtitle-1 text-dark">Phone Number</div>
+                <v-text-field
+                  v-model="formData.phone"
+                  density="compact"
+                  placeholder="Enter your phone number"
+                  prepend-inner-icon="mdi-phone-outline"
+                  variant="outlined"
+                  class="custom-input"
+                  :rules="[requiredValidator, phoneValidator]"
+                />
 
-          <!-- Phone Number Second -->
-          <v-text-field
-            v-model="phone"
-            :rules="[rules.required]"
-            color="primary"
-            label="Phone Number"
-            type="tel"
-            variant="outlined"
-          ></v-text-field>
+                <!-- Password -->
+                <div class="text-subtitle-1 text-dark">Password</div>
+                <v-text-field
+                  v-model="formData.password"
+                  :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
+                  :type="visible ? 'text' : 'password'"
+                  density="compact"
+                  placeholder="Create a strong password"
+                  prepend-inner-icon="mdi-lock-outline"
+                  variant="outlined"
+                  class="custom-input"
+                  @click:append-inner="visible = !visible"
+                  :rules="[requiredValidator, passwordValidator]"
+                />
 
-          <!-- Password Third -->
-          <v-text-field
-            v-model="password"
-            :rules="[rules.required, rules.password, rules.length(6)]"
-            color="primary"
-            counter="6"
-            label="Password"
-            type="password"
-            variant="outlined"
-          ></v-text-field>
+                <!-- Terms Agreement -->
+                <v-checkbox
+                  v-model="formData.agreed"
+                  color="primary"
+                  :rules="[(v) => !!v || 'You must agree before continuing']"
+                >
+                  <template v-slot:label>
+                    <span class="text-dark">
+                      I agree to the
+                      <a class="text-primary text-decoration-none" href="#">Terms & Privacy Policy</a>
+                    </span>
+                  </template>
+                </v-checkbox>
 
-          <!-- User Type Last -->
-          <v-select
-            v-model="userType"
-            :rules="[rules.required]"
-            :items="['Admin', 'Moderator', 'Staff']"
-            color="primary"
-            label="User Type"
-            variant="outlined"
-          ></v-select>
+                <!-- Submit Button -->
+                <v-btn
+                  type="submit"
+                  color="primary"
+                  size="large"
+                  variant="tonal"
+                  block
+                  :loading="formAction.formProcess"
+                >
+                  Sign Up
+                </v-btn>
 
-          <v-checkbox v-model="agreement" :rules="[rules.required]" color="primary">
-            <template v-slot:label>
-              I agree to the&nbsp;
-              <a href="#" @click.stop.prevent="dialog = true">Terms of Service</a>
-              &nbsp;and&nbsp;
-              <a href="#" @click.stop.prevent="dialog = true">Privacy Policy</a>*
-            </template>
-          </v-checkbox>
+                <!-- Already have an account -->
+                <v-card-text class="text-center mt-4">
+                  <RouterLink class="router-link text-primary" to="/login">
+                    Already have an account? Log in <v-icon icon="mdi-chevron-right"></v-icon>
+                  </RouterLink>
+                </v-card-text>
+              </v-card-text>
+            </v-form>
+          </v-card>
+        </v-col>
 
-          <v-divider class="my-4"></v-divider>
-
-          <v-card-actions>
-            <v-btn variant="outlined" @click="resetForm()">Clear</v-btn>
-            <v-spacer></v-spacer>
-            <v-btn :disabled="!isValid" :loading="isLoading" color="primary">Submit</v-btn>
-          </v-card-actions>
-        </v-form>
-      </v-card>
+        <!-- Right Side: Background -->
+        <v-col cols="12" md="6" class="image-section"></v-col>
+      </v-row>
     </v-container>
-
-    <!-- Terms of Service Dialog -->
-    <v-dialog v-model="dialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h5 bg-grey-lighten-3">Legal</v-card-title>
-        <v-card-text> Please review our Terms of Service and Privacy Policy. </v-card-text>
-        <v-divider></v-divider>
-        <v-card-actions>
-          <v-btn variant="text" @click="agreement = false; dialog = false"> No </v-btn>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" variant="tonal" @click="agreement = true; dialog = false"> Yes </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-app>
 </template>
+
+<style scoped>
+.signup-container {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+.signup-row {
+  width: 100%;
+}
+
+.form-section {
+  height: 100vh;
+  overflow-y: auto;
+  padding: 40px;
+  background: #80919e;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.signup-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 30px;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  transform: translateY(50px);
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+}
+
+.animate-form {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.image-section {
+  height: 100vh;
+  background: url('@/assets/signup-bg.jpg') no-repeat center center;
+  background-size: cover;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 50%;
+}
+
+.custom-input :deep(input) {
+  color: #333 !important;
+}
+
+.custom-input :deep(::placeholder) {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.router-link {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.router-link:hover,
+.router-link:focus,
+.router-link:active {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+</style>
