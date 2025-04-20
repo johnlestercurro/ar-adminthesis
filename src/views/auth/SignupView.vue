@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { requiredValidator, emailValidator } from '@/utils/validators'
 import { supabase, formActionDefault } from '@/utils/supabase.js'
+import AlertNotification from '@/components/common/AlertNotification.vue'
 
 // UI states
 const visible = ref(false)
@@ -17,7 +18,7 @@ const formDataDefault = {
 }
 
 const formData = ref({ ...formDataDefault })
-const formAction = ref({ ...formActionDefault })
+const formAction = reactive({ ...formActionDefault }) // Use reactive for better object reactivity
 
 const showSuccessAlert = ref(false)
 const showErrorAlert = ref(false)
@@ -30,11 +31,11 @@ onMounted(() => {
 })
 
 // Validators
-const phoneValidator = value => {
+const phoneValidator = (value) => {
   return /^\d{7,15}$/.test(value) || 'Enter a valid phone number'
 }
 
-const passwordValidator = value => {
+const passwordValidator = (value) => {
   return (value && value.length >= 6) || 'Password must be at least 6 characters'
 }
 
@@ -43,9 +44,9 @@ const onFormSubmit = () => {
   refVForm.value?.validate().then(async ({ valid }) => {
     if (valid) {
       try {
-        formAction.value.formProcess = true
-        formAction.value.formErrorMessage = ''
-        formAction.value.formSuccessMessage = ''
+        formAction.formProcess = true
+        formAction.formErrorMessage = ''
+        formAction.formSuccessMessage = ''
 
         const { error } = await supabase.auth.signUp({
           email: formData.value.email,
@@ -61,8 +62,14 @@ const onFormSubmit = () => {
         if (error) throw error
 
         // Success
-        formAction.value.formSuccessMessage = 'Registration successful!'
+        formAction.formSuccessMessage = 'Registration successful!'
         showSuccessAlert.value = true
+
+        // Debug log to confirm state change
+        console.log('Success State:', {
+          showSuccessAlert: showSuccessAlert.value,
+          formSuccessMessage: formAction.formSuccessMessage,
+        })
 
         // Clear form
         Object.assign(formData.value, { ...formDataDefault })
@@ -71,17 +78,33 @@ const onFormSubmit = () => {
         // Auto-hide success message after 5 seconds
         setTimeout(() => {
           showSuccessAlert.value = false
+          formAction.formSuccessMessage = '' // Clear message to prevent re-display
+          console.log('Success Alert Hidden:', {
+            showSuccessAlert: showSuccessAlert.value,
+            formSuccessMessage: formAction.formSuccessMessage,
+          })
         }, 5000)
       } catch (err) {
-        formAction.value.formErrorMessage = err.message
+        formAction.formErrorMessage = err.message
         showErrorAlert.value = true
+
+        // Debug log for error state
+        console.log('Error State:', {
+          showErrorAlert: showErrorAlert.value,
+          formErrorMessage: formAction.formErrorMessage,
+        })
 
         // Auto-hide error message after 5 seconds
         setTimeout(() => {
           showErrorAlert.value = false
+          formAction.formErrorMessage = '' // Clear message to prevent re-display
+          console.log('Error Alert Hidden:', {
+            showErrorAlert: showErrorAlert.value,
+            formErrorMessage: formAction.formErrorMessage,
+          })
         }, 5000)
       } finally {
-        formAction.value.formProcess = false
+        formAction.formProcess = false
       }
     }
   })
@@ -90,46 +113,41 @@ const onFormSubmit = () => {
 
 <template>
   <v-app>
-    <!-- ✅ Alerts -->
-    <v-alert
-      v-if="formAction.formSuccessMessage && showSuccessAlert"
-      :text="formAction.formSuccessMessage"
-      title="Success!"
-      type="success"
-      variant="tonal"
-      density="compact"
-      border="start"
-      closable
-      @click:close="showSuccessAlert = false"
-    />
-
-    <v-alert
-      v-if="formAction.formErrorMessage && showErrorAlert"
-      :text="formAction.formErrorMessage"
-      title="Ooops!"
-      type="error"
-      variant="tonal"
-      density="compact"
-      border="start"
-      closable
-      @click:close="showErrorAlert = false"
-    />
-
-    <!-- ✅ Main Layout -->
+    <!-- Main Layout -->
     <v-container fluid class="signup-container">
-      <v-row class="signup-row">
-        <!-- Left Side: Sign-Up Form -->
-        <v-col cols="12" md="6" class="form-section">
+      <!-- Alert Notification -->
+      <AlertNotification
+        :key="`${showSuccessAlert}-${showErrorAlert}`"
+        :form-success-message="formAction.formSuccessMessage"
+        :form-error-message="formAction.formErrorMessage"
+        :show-success-alert="showSuccessAlert"
+        :show-error-alert="showErrorAlert"
+        @update:successAlert="showSuccessAlert = $event"
+        @update:errorAlert="showErrorAlert = $event"
+      />
+
+      <v-row justify="center" align="center" class="signup-row">
+        <!-- Form Section -->
+        <v-col cols="12" sm="10" md="6" lg="4">
           <v-card class="signup-card" :class="{ 'animate-form': formVisible }">
-            <v-card-title class="text-h5 text-center text-primary">Admin Sign Up</v-card-title>
+            <!-- Logo Placeholder -->
+            <v-img
+              src="@/assets/logo.png"
+              max-width="120"
+              class="mx-auto mb-6"
+              v-if="formVisible"
+            />
+            <v-card-title class="text-h4 text-center text-primary mb-6">
+              Admin Sign Up
+            </v-card-title>
 
             <v-form ref="refVForm" @submit.prevent="onFormSubmit">
               <v-card-text>
                 <!-- Email -->
-                <div class="text-subtitle-1 text-dark">Email Address</div>
+                <div class="text-subtitle-1 text-dark mb-2">Email Address</div>
                 <v-text-field
                   v-model="formData.email"
-                  density="compact"
+                  density="comfortable"
                   placeholder="Enter your email"
                   prepend-inner-icon="mdi-email-outline"
                   variant="outlined"
@@ -138,10 +156,10 @@ const onFormSubmit = () => {
                 />
 
                 <!-- Phone Number -->
-                <div class="text-subtitle-1 text-dark">Phone Number</div>
+                <div class="text-subtitle-1 text-dark mb-2">Phone Number</div>
                 <v-text-field
                   v-model="formData.phone"
-                  density="compact"
+                  density="comfortable"
                   placeholder="Enter your phone number"
                   prepend-inner-icon="mdi-phone-outline"
                   variant="outlined"
@@ -150,12 +168,12 @@ const onFormSubmit = () => {
                 />
 
                 <!-- Password -->
-                <div class="text-subtitle-1 text-dark">Password</div>
+                <div class="text-subtitle-1 text-dark mb-2">Password</div>
                 <v-text-field
                   v-model="formData.password"
                   :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
                   :type="visible ? 'text' : 'password'"
-                  density="compact"
+                  density="comfortable"
                   placeholder="Create a strong password"
                   prepend-inner-icon="mdi-lock-outline"
                   variant="outlined"
@@ -168,12 +186,15 @@ const onFormSubmit = () => {
                 <v-checkbox
                   v-model="formData.agreed"
                   color="primary"
+                  class="mt-2"
                   :rules="[(v) => !!v || 'You must agree before continuing']"
                 >
                   <template v-slot:label>
                     <span class="text-dark">
                       I agree to the
-                      <a class="text-primary text-decoration-none" href="#">Terms & Privacy Policy</a>
+                      <a class="text-primary text-decoration-none" href="#"
+                        >Terms & Privacy Policy</a
+                      >
                     </span>
                   </template>
                 </v-checkbox>
@@ -181,28 +202,33 @@ const onFormSubmit = () => {
                 <!-- Submit Button -->
                 <v-btn
                   type="submit"
-                  color="primary"
+                  class="mt-6"
                   size="large"
-                  variant="tonal"
                   block
+                  :disabled="formAction.formProcess"
                   :loading="formAction.formProcess"
                 >
-                  Sign Up
+                  <template v-slot:loader>
+                    <v-progress-circular indeterminate color="white" size="20" />
+                  </template>
+                  <span class="btn-text">Sign Up</span>
                 </v-btn>
 
                 <!-- Already have an account -->
-                <v-card-text class="text-center mt-4">
+                <v-card-text class="text-center mt-6">
                   <RouterLink class="router-link text-primary" to="/login">
                     Already have an account? Log in <v-icon icon="mdi-chevron-right"></v-icon>
                   </RouterLink>
+                </v-card-text>
+
+                <!-- Footer -->
+                <v-card-text class="text-center mt-6">
+                  <small>© 2025 AR-ADMIN. All rights reserved.</small>
                 </v-card-text>
               </v-card-text>
             </v-form>
           </v-card>
         </v-col>
-
-        <!-- Right Side: Background -->
-        <v-col cols="12" md="6" class="image-section"></v-col>
       </v-row>
     </v-container>
   </v-app>
@@ -210,32 +236,31 @@ const onFormSubmit = () => {
 
 <style scoped>
 .signup-container {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+    url('@/assets/signup-bg.jpg') no-repeat center center fixed;
+  background-size: cover;
+  position: relative; /* Ensure alerts can be positioned absolutely within this container */
 }
 
 .signup-row {
   width: 100%;
-}
-
-.form-section {
-  height: 100vh;
-  overflow-y: auto;
-  padding: 40px;
-  background: #80919e;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  max-width: 1400px;
 }
 
 .signup-card {
   width: 100%;
-  max-width: 420px;
-  padding: 30px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  max-width: 480px; /* Increased width from 400px to 480px */
+  padding: 32px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95); /* Semi-transparent white for readability */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  border-image: linear-gradient(45deg, #6b48ff, #00d2ff) 1;
   opacity: 0;
   transform: translateY(50px);
   transition:
@@ -248,18 +273,12 @@ const onFormSubmit = () => {
   transform: translateY(0);
 }
 
-.image-section {
-  height: 100vh;
-  background: url('@/assets/signup-bg.jpg') no-repeat center center;
-  background-size: cover;
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 50%;
-}
-
 .custom-input :deep(input) {
   color: #333 !important;
+}
+
+.custom-input :deep(.v-field) {
+  border-radius: 8px;
 }
 
 .custom-input :deep(::placeholder) {
@@ -268,13 +287,50 @@ const onFormSubmit = () => {
 
 .router-link {
   text-decoration: none !important;
-  color: inherit !important;
+  font-weight: 500;
 }
 
 .router-link:hover,
 .router-link:focus,
 .router-link:active {
   text-decoration: none !important;
-  color: inherit !important;
+}
+
+/* Button styling */
+v-btn {
+  background: linear-gradient(45deg, #6b48ff, #00d2ff);
+  color: white !important;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+v-btn:hover {
+  background: linear-gradient(45deg, #5a3de6, #00b5e2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .signup-card {
+    max-width: 100%;
+    min-width: 300px; /* Adjusted from 280px to 300px for consistency with wider form */
+    padding: 20px;
+    border-radius: 12px;
+  }
+  .custom-input {
+    font-size: 14px;
+  }
+  .text-h4 {
+    font-size: 1.5rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .signup-card {
+    min-width: 280px; /* Adjusted from 260px to 280px for better readability */
+    padding: 16px;
+  }
 }
 </style>
