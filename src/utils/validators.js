@@ -134,3 +134,13 @@ export const imageValidator = (value) => {
 
   return !value || !value.length || value[0].size < 2000000 || 'Image size should be less than 2 MB'
 }
+
+
+
+// Name Validators
+const nameValidator = (value) => {
+  if (!value) return 'This field is required'
+  if (value.length < 2) return 'Full name must be at least 2 characters'
+  if (!/^[a-zA-Z\s]+$/.test(value)) return 'Full name can only contain letters and spaces'
+  return true
+}

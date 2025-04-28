@@ -1,10 +1,14 @@
 <script setup>
+import AlertNotification from '@/components/common/AlertNotification.vue'
 import { ref } from 'vue'
 import { requiredValidator, emailValidator } from '@/utils/validators'
+import { supabase, formActionDefault } from '@/utils/supabase'
+import { useRouter } from 'vue-router' // Add router for redirection
 
 const isPasswordVisible = ref(false)
 const refVForm = ref()
 
+// Form data
 const formDataDefault = {
   email: '',
   password: '',
@@ -12,20 +16,66 @@ const formDataDefault = {
 
 const formData = ref({ ...formDataDefault })
 
-const onLogin = () => {
-  // Replace this with your login logic (API call, Supabase, etc.)
-  console.log('Logging in with:', formData.value)
-  // Example: router.push('/dashboard')
+// Alert notification states
+const showSuccessAlert = ref(false)
+const showErrorAlert = ref(false)
+const formAction = ref({ ...formActionDefault })
+
+// Router for redirection after login
+const router = useRouter()
+
+// Login function with Supabase
+const onSubmit = async () => {
+  formAction.value = { ...formActionDefault, formProcess: true }
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: formData.value.email,
+      password: formData.value.password,
+    })
+    if (error) throw error
+
+    // On successful login
+    formAction.value = {
+      formProcess: false,
+      formStatus: 200,
+      formSuccessMessage: 'Login successful!',
+      formErrorMessage: '',
+    }
+    showSuccessAlert.value = true
+    formData.value = { ...formDataDefault } // Reset form
+    router.push('/dashboard') // Redirect to dashboard
+  } catch (error) {
+    console.error('Error during login:', error)
+    formAction.value = {
+      formProcess: false,
+      formStatus: 400,
+      formErrorMessage: error.message || 'Login failed. Please try again.',
+      formSuccessMessage: '',
+    }
+    showErrorAlert.value = true
+  }
 }
 
+// Form submission handler
 const onFormSubmit = () => {
   refVForm.value?.validate().then(({ valid }) => {
-    if (valid) onLogin()
+    if (valid) onSubmit()
   })
 }
 </script>
 
 <template>
+  <!-- Alert Notification -->
+  <AlertNotification
+    :key="`${showSuccessAlert}-${showErrorAlert}`"
+    :form-success-message="formAction.formSuccessMessage"
+    :form-error-message="formAction.formErrorMessage"
+    :show-success-alert="showSuccessAlert"
+    :show-error-alert="showErrorAlert"
+    @update:successAlert="showSuccessAlert = $event"
+    @update:errorAlert="showErrorAlert = $event"
+  />
+
   <v-app>
     <v-container fluid class="login-container pa-0">
       <v-row class="fill-height">
@@ -80,7 +130,14 @@ const onFormSubmit = () => {
                     </v-card-text>
                   </v-card>
 
-                  <v-btn type="submit" color="blue" size="large" variant="tonal" block>
+                  <v-btn
+                    type="submit"
+                    color="blue"
+                    size="large"
+                    variant="tonal"
+                    block
+                    :loading="formAction.formProcess"
+                  >
                     Log In
                   </v-btn>
 
