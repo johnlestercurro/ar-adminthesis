@@ -1,140 +1,236 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { supabase, isAuthenticated } from '@/utils/supabase'
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { supabase, isAuthenticated } from '@/utils/supabase';
+import AlertNotification from '@/components/common/AlertNotification.vue';
+import ProfileHeader from '@/components/common/layout/ProfileHeader.vue';
 
+const router = useRouter();
+const drawer = ref(false);
+const loading = ref(true);
+const showSuccessAlert = ref(false);
+const showErrorAlert = ref(false);
+const formAction = ref({
+  formSuccessMessage: 'Success!',
+  formErrorMessage: 'An error occurred.',
+});
+const vrFile = ref(null);
 
-// Router for redirection
-const router = useRouter()
-
-// Sidebar state
-const drawer = ref(false)
-
-// Loading state
-const loading = ref(true)
-
-// User profile data
 const userProfile = ref({
-  fullName: 'John Lester Curro',
-  role: 'Administrator',
-})
-
-// Dashboard metrics (to be fetched dynamically)
+  fullName: 'Unknown User',
+  role: 'User',
+  initials: '',
+  profilePicture: '/default-avatar.png',
+});
 const metrics = ref({
-  liveUsers: 42,
-  mapInteractions: 120,
-  visitedHotspots: 385,
-})
+  liveUsers: 0,
+  mapInteractions: 0,
+  visitedHotspots: 0,
+});
+const recentActivities = ref([]);
+const notifications = ref([]);
 
-// Recent activities (to be fetched dynamically)
-const recentActivities = ref([
-  { icon: 'mdi-account-plus', color: 'blue', text: 'John added a new hotspot in the Admin Building.' },
-  { icon: 'mdi-check-circle', color: 'green', text: 'User Maria finished her AR navigation session.' },
-])
-
-// Notifications (static for now, can be fetched similarly)
-const notifications = ref([
-  { icon: 'mdi-check-circle', color: 'green', text: 'New user joined the AR tour.' },
-  { icon: 'mdi-map-marker', color: 'blue', text: 'Hotspot "Lab 301" was visited.' },
-])
-
-// Navbar Links
 const links = [
   { title: 'Dashboard', path: '/' },
   { title: 'Profile', path: '/profile' },
+  { title: 'CCIS Destinations', path: '/destinations' },
   { title: 'User Management', path: '/users' },
-]
-
-// Sidebar Items
+  { title: 'Feedback', path: '/feedback' },
+];
 const sidebarItems = [
   { title: 'Overview', icon: 'mdi-view-dashboard', path: '/' },
-  { title: 'Reports', icon: 'mdi-file-chart', path: '/reports' },
+  { title: 'CCIS Destinations', icon: 'mdi-map-marker', path: '/destinations' },
   { title: 'User Management', icon: 'mdi-account-group', path: '/users' },
   { title: 'Settings', icon: 'mdi-cog', path: '/settings' },
+  { title: 'Feedback', icon: 'mdi-comment-text', path: '/feedback' },
   { title: 'Logout', icon: 'mdi-logout', path: '/logout' },
-]
+];
 
-// Check authentication and load data on mount
-onMounted(async () => {
-  // Check if user is authenticated
-  const authenticated = await isAuthenticated()
-  if (!authenticated) {
-    router.push('/login')
-    return
-  }
+const getAvatarText = (fullName) => {
+  if (!fullName) return '';
+  const names = fullName.trim().split(' ');
+  return names.length > 1
+    ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
+    : names[0][0].toUpperCase();
+};
 
-  // Fetch user profile
-  await fetchUserProfile()
-
-  // Fetch dashboard data
-  await fetchDashboardData()
-
-  // Set loading to false once data is loaded
-  loading.value = false
-})
-
-// Fetch user profile from Supabase
 const fetchUserProfile = async () => {
+  console.log('Fetching user profile...');
   try {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (error) throw error
+    const { data: { user }, error } = await supabase.auth.getUser();
+    console.log('Auth user:', user, 'Error:', error);
+    if (error) throw new Error(`Auth error: ${error.message}`);
+    if (!user) throw new Error('No authenticated user');
 
-    if (user) {
-      // Fetch additional user data from a profiles table (assumed structure)
-      const { data, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', user.id)
-        .single()
+    const { data, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name, role, profile_picture')
+      .eq('id', user.id)
+      .single();
 
-      if (profileError) throw profileError
-
-      if (data) {
-        userProfile.value.fullName = data.full_name || 'John Lester Curro'
-        userProfile.value.role = data.role || 'Administrator'
-      }
+    console.log('Profile data:', data, 'Profile error:', profileError);
+    if (profileError || !data) {
+      console.warn('Profile fetch error or no data:', profileError?.message);
+      userProfile.value.fullName = user.email || 'Unknown User';
+      userProfile.value.role = 'User';
+      userProfile.value.initials = getAvatarText(user.email || '');
+      userProfile.value.profilePicture = '/default-avatar.png';
+    } else {
+      userProfile.value.fullName = data.full_name || user.email || 'Unknown User';
+      userProfile.value.role = data.role || 'User';
+      userProfile.value.initials = getAvatarText(data.full_name || user.email);
+      userProfile.value.profilePicture = data.profile_picture || '/default-avatar.png';
     }
+    console.log('UserProfile fetched:', userProfile.value);
   } catch (error) {
-    console.error('Error fetching user profile:', error.message)
+    console.error('Error fetching user profile:', error.message);
+    formAction.value.formErrorMessage = 'Failed to load profile. Please log in again.';
+    showErrorAlert.value = true;
+    router.push('/login');
+    throw error;
   }
-}
+};
 
-// Fetch dashboard metrics and recent activities
 const fetchDashboardData = async () => {
+  console.log('Fetching dashboard data...');
   try {
-    // Fetch metrics (example: from a 'metrics' table)
-    const { data: metricsData, error: metricsError } = await supabase
-      .from('metrics')
-      .select('live_users, map_interactions, visited_hotspots')
-      .single()
-
-    if (metricsError) throw metricsError
-
-    if (metricsData) {
-      metrics.value.liveUsers = metricsData.live_users || 42
-      metrics.value.mapInteractions = metricsData.map_interactions || 120
-      metrics.value.visitedHotspots = metricsData.visited_hotspots || 385
+    // Metrics
+    let metricsRes = { data: [], error: null };
+    try {
+      metricsRes = await supabase
+        .from('metrics')
+        .select('live_users, map_interactions, visited_hotspots')
+        .limit(1);
+      console.log('Metrics response:', metricsRes);
+    } catch (error) {
+      console.warn('Metrics fetch failed:', error.message);
+      metricsRes.error = error;
+    }
+    if (metricsRes.error) console.warn('Metrics error:', metricsRes.error.message);
+    if (metricsRes.data && metricsRes.data.length > 0) {
+      metrics.value.liveUsers = metricsRes.data[0].live_users || 0;
+      metrics.value.mapInteractions = metricsRes.data[0].map_interactions || 0;
+      metrics.value.visitedHotspots = metricsRes.data[0].visited_hotspots || 0;
+    } else {
+      console.warn('No metrics data found');
+      metrics.value.liveUsers = 0;
+      metrics.value.mapInteractions = 0;
+      metrics.value.visitedHotspots = 0;
     }
 
-    // Fetch recent activities (example: from an 'activities' table)
-    const { data: activitiesData, error: activitiesError } = await supabase
-      .from('activities')
-      .select('icon, color, text')
-      .order('created_at', { ascending: false })
-      .limit(2)
-
-    if (activitiesError) throw activitiesError
-
-    if (activitiesData && activitiesData.length > 0) {
-      recentActivities.value = activitiesData
+    // Activities
+    let activitiesRes = { data: [], error: null };
+    try {
+      activitiesRes = await supabase
+        .from('activities')
+        .select('icon, color, text')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      console.log('Activities response:', activitiesRes);
+    } catch (error) {
+      console.warn('Activities fetch failed:', error.message);
+      activitiesRes.error = error;
     }
+    if (activitiesRes.error) console.warn('Activities error:', activitiesRes.error.message);
+    recentActivities.value = activitiesRes.data || [];
+
+    // Notifications
+    let notificationsRes = { data: [], error: null };
+    try {
+      notificationsRes = await supabase
+        .from('notifications')
+        .select('icon, color, text')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      console.log('Notifications response:', notificationsRes);
+    } catch (error) {
+      console.warn('Notifications fetch failed:', error.message);
+      notificationsRes.error = error;
+    }
+    if (notificationsRes.error) console.warn('Notifications error:', notificationsRes.error.message);
+    notifications.value = notificationsRes.data || [];
   } catch (error) {
-    console.error('Error fetching dashboard data:', error.message)
+    console.error('Error fetching dashboard data:', error.message);
+    formAction.value.formErrorMessage = `Failed to load dashboard data: ${error.message}`;
+    showErrorAlert.value = true;
   }
-}
+};
+
+const uploadVRScene = async (file) => {
+  console.log('Uploading VR scene:', file);
+  if (!file) {
+    formAction.value.formErrorMessage = 'Please select a file.';
+    showErrorAlert.value = true;
+    return;
+  }
+  try {
+    const fileName = `${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from('vr-scenes').upload(fileName, file);
+    if (error) throw error;
+    formAction.value.formSuccessMessage = 'VR scene uploaded successfully!';
+    showSuccessAlert.value = true;
+  } catch (error) {
+    console.error('Error uploading VR scene:', error.message);
+    formAction.value.formErrorMessage = `Failed to upload VR scene: ${error.message}`;
+    showErrorAlert.value = true;
+  }
+};
+
+const logout = async () => {
+  console.log('Logging out...');
+  try {
+    await supabase.auth.signOut();
+    router.push('/login');
+  } catch (error) {
+    console.error('Error signing out:', error.message);
+    formAction.value.formErrorMessage = 'Failed to sign out.';
+    showErrorAlert.value = true;
+  }
+};
+
+// Handle image load error
+const handleImageError = () => {
+  console.warn('Profile picture failed to load, using default avatar');
+  userProfile.value.profilePicture = '/default-avatar.png';
+};
+
+onMounted(async () => {
+  console.log('onMounted triggered');
+  try {
+    const authenticated = await Promise.race([
+      isAuthenticated(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Authentication timeout')), 5000)),
+    ]);
+    console.log('Authenticated:', authenticated);
+    if (!authenticated) {
+      console.warn('User not authenticated, redirecting to login');
+      router.push('/login');
+      return;
+    }
+    await fetchUserProfile();
+    await fetchDashboardData();
+  } catch (error) {
+    console.error('Error in onMounted:', error.message);
+    formAction.value.formErrorMessage = 'Failed to initialize dashboard: ' + error.message;
+    showErrorAlert.value = true;
+  } finally {
+    console.log('Setting loading to false');
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
+  <!-- Alert Notification -->
+  <AlertNotification
+    :form-success-message="formAction.formSuccessMessage"
+    :form-error-message="formAction.formErrorMessage"
+    :show-success-alert="showSuccessAlert"
+    :show-error-alert="showErrorAlert"
+    @update:successAlert="showSuccessAlert = $event"
+    @update:errorAlert="showErrorAlert = $event"
+  />
+
   <v-app>
     <!-- Show loading spinner while data is being fetched -->
     <v-overlay :model-value="loading" class="align-center justify-center">
@@ -142,68 +238,76 @@ const fetchDashboardData = async () => {
     </v-overlay>
 
     <!-- Navbar -->
-    <v-app-bar flat color="#2E5AAC">
-      <v-container class="d-flex align-center justify-space-between">
+    <v-app-bar flat color="primary">
+      <v-container class="d-flex align-center pa-0">
+        <!-- Menu Button for Sidebar -->
         <v-btn icon @click="drawer = !drawer" color="white">
           <v-icon>mdi-menu</v-icon>
         </v-btn>
 
-        <div class="d-flex align-center">
-          <v-avatar class="me-3" color="blue-grey darken-3" size="40"></v-avatar>
+        <!-- Navbar Links -->
+        <div class="d-flex align-center ml-4">
           <RouterLink
             v-for="link in links"
             :key="link.title"
             :to="link.path"
-            class="nav-link"
+            class="nav-link d-none d-sm-inline"
+            :aria-label="`Navigate to ${link.title}`"
           >
             {{ link.title }}
           </RouterLink>
         </div>
 
-        <v-spacer></v-spacer>
+        <!-- Spacer to push ProfileHeader to the right -->
+        <v-spacer />
 
-        <v-responsive max-width="200">
-          <v-text-field
-            density="compact"
-            label="Search"
-            rounded="lg"
-            variant="solo-filled"
-            flat
-            hide-details
-            single-line
-            class="custom-input"
-          ></v-text-field>
-        </v-responsive>
+        <!-- Profile Header -->
+        <ProfileHeader
+          :full-name="userProfile.fullName"
+          :role="userProfile.role"
+          :initials="userProfile.initials"
+          :profile-picture="userProfile.profilePicture"
+          :logout="logout"
+        />
       </v-container>
     </v-app-bar>
 
     <!-- Sidebar Navigation -->
-    <v-navigation-drawer v-model="drawer" temporary color="#1A2B4C">
+    <v-navigation-drawer v-model="drawer" temporary color="secondary">
       <v-list>
-        <RouterLink
+        <v-list-item
           v-for="(item, index) in sidebarItems"
           :key="index"
-          :to="item.path"
-          class="sidebar-link"
+          :to="item.path !== '/logout' ? item.path : undefined"
+          class="py-3 text-white"
+          link
+          @click="item.path === '/logout' && logout()"
         >
-          <v-list-item link class="py-3 text-white">
-            <template v-slot:prepend>
-              <v-icon color="blue-grey lighten-3">{{ item.icon }}</v-icon>
-            </template>
-            {{ item.title }}
-          </v-list-item>
-        </RouterLink>
+          <template v-slot:prepend>
+            <v-icon color="white">{{ item.icon }}</v-icon>
+          </template>
+          <v-list-item-title>{{ item.title }}</v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-navigation-drawer>
 
     <!-- Main Content -->
-    <v-main class="bg-dashboard">
+    <v-main class="dashboard-container">
       <v-container>
         <v-row>
           <!-- Profile Widget -->
           <v-col cols="12" md="4">
-            <v-card class="profile-card pa-4">
-              <v-avatar size="80" class="mx-auto mb-3" color="blue-grey darken-3"></v-avatar>
+            <v-card class="profile-card pa-4" elevation="6">
+              <v-avatar size="80" class="mx-auto mb-3 profile-avatar">
+                <img
+                  v-if="userProfile.profilePicture"
+                  :src="userProfile.profilePicture"
+                  alt="Profile Picture"
+                  class="profile-image"
+                  @error="handleImageError"
+                />
+                <span v-else class="text-h5 white--text">{{ userProfile.initials }}</span>
+              </v-avatar>
               <v-card-title class="text-center">{{ userProfile.fullName }}</v-card-title>
               <v-card-subtitle class="text-center">{{ userProfile.role }}</v-card-subtitle>
             </v-card>
@@ -211,7 +315,7 @@ const fetchDashboardData = async () => {
 
           <!-- Quick Actions -->
           <v-col cols="12" md="4">
-            <v-card class="pa-4">
+            <v-card class="pa-4" elevation="6">
               <v-card-title>Quick Actions</v-card-title>
               <v-btn block color="primary" class="mb-2">View AR Sessions</v-btn>
               <v-btn block color="secondary">Manage Hotspots</v-btn>
@@ -220,10 +324,13 @@ const fetchDashboardData = async () => {
 
           <!-- Notifications -->
           <v-col cols="12" md="4">
-            <v-card class="pa-4">
+            <v-card class="pa-4" elevation="6">
               <v-card-title>Notifications</v-card-title>
               <v-list density="compact">
-                <v-list-item v-for="(notification, index) in notifications" :key="index">
+                <v-list-item v-if="notifications.length === 0">
+                  <v-list-item-title>No notifications available</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-else v-for="(notification, index) in notifications" :key="index">
                   <v-icon :color="notification.color">{{ notification.icon }}</v-icon>
                   {{ notification.text }}
                 </v-list-item>
@@ -235,23 +342,23 @@ const fetchDashboardData = async () => {
         <!-- AR Navigation Metrics -->
         <v-row>
           <v-col cols="12">
-            <v-card class="pa-4">
+            <v-card class="pa-4" elevation="6">
               <v-card-title>AR Navigation Metrics</v-card-title>
               <v-row>
                 <v-col cols="4">
-                  <v-card color="light-blue lighten-4" class="pa-3">
+                  <v-card color="light-blue lighten-4" class="pa-3" flat>
                     <v-card-title>Live AR Users</v-card-title>
                     <v-card-subtitle>{{ metrics.liveUsers }} Active</v-card-subtitle>
                   </v-card>
                 </v-col>
                 <v-col cols="4">
-                  <v-card color="teal lighten-4" class="pa-3">
+                  <v-card color="teal lighten-4" class="pa-3" flat>
                     <v-card-title>3D Map Interactions</v-card-title>
                     <v-card-subtitle>{{ metrics.mapInteractions }} Today</v-card-subtitle>
                   </v-card>
                 </v-col>
                 <v-col cols="4">
-                  <v-card color="amber lighten-4" class="pa-3">
+                  <v-card color="amber lighten-4" class="pa-3" flat>
                     <v-card-title>Visited Hotspots</v-card-title>
                     <v-card-subtitle>{{ metrics.visitedHotspots }} Total</v-card-subtitle>
                   </v-card>
@@ -264,10 +371,13 @@ const fetchDashboardData = async () => {
         <!-- Recent Activities -->
         <v-row>
           <v-col cols="12">
-            <v-card class="pa-4">
+            <v-card class="pa-4" elevation="6">
               <v-card-title>Recent Activities</v-card-title>
               <v-list>
-                <v-list-item v-for="(activity, index) in recentActivities" :key="index">
+                <v-list-item v-if="recentActivities.length === 0">
+                  <v-list-item-title>No recent activities</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-else v-for="(activity, index) in recentActivities" :key="index">
                   <v-icon :color="activity.color">{{ activity.icon }}</v-icon>
                   {{ activity.text }}
                 </v-list-item>
@@ -279,16 +389,17 @@ const fetchDashboardData = async () => {
         <!-- VR/AR Deployment Area -->
         <v-row>
           <v-col cols="12">
-            <v-card class="pa-4">
+            <v-card class="pa-4" elevation="6">
               <v-card-title>Deploy VR Experience</v-card-title>
               <v-card-text>
                 <v-file-input
+                  v-model="vrFile"
                   label="Upload VR Scene"
                   accept=".glb,.gltf,.fbx"
                   prepend-icon="mdi-vr"
                   class="mb-3"
                 ></v-file-input>
-                <v-btn color="primary" block>Deploy to Supabase</v-btn>
+                <v-btn color="primary" block @click="uploadVRScene(vrFile)">Deploy to Supabase</v-btn>
               </v-card-text>
             </v-card>
           </v-col>
@@ -299,22 +410,13 @@ const fetchDashboardData = async () => {
 </template>
 
 <style scoped>
-.bg-dashboard {
-  background-color: #F4F6FA;
+.dashboard-container {
+  background: linear-gradient(135deg, #F5F6F5 0%, #E8F5E9 100%);
+  overflow: auto;
 }
-.custom-input input {
-  background: rgba(0, 0, 0, 0.05);
-  color: black;
-  border-radius: 8px;
-}
-.v-list-item {
-  transition: background 0.2s ease-in-out;
-}
-.v-list-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+
 .nav-link {
-  margin: 0 10px;
+  margin: 0 8px;
   text-decoration: none !important;
   color: white;
   font-weight: 500;
@@ -323,16 +425,49 @@ const fetchDashboardData = async () => {
 .nav-link:focus,
 .nav-link:active {
   text-decoration: none !important;
-  color: #FFD700;
+  color: var(--v-theme-accent);
 }
-.sidebar-link {
-  text-decoration: none;
-  color: white;
-}
-.sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+
 .profile-card {
   text-align: center;
+  background: white;
+  border-radius: 12px;
+  transition: transform 0.3s ease-in-out;
+}
+.profile-card:hover {
+  transform: scale(1.02);
+}
+
+.profile-avatar {
+  transition: transform 0.3s ease-in-out;
+  overflow: hidden;
+}
+.profile-avatar:hover {
+  transform: scale(1.1);
+}
+
+.profile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+}
+
+.v-app-bar {
+  z-index: 1000 !important;
+}
+
+.v-container {
+  max-width: 1200px;
+  padding: 16px;
+}
+
+.v-list-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.v-card {
+  border-radius: 12px;
 }
 </style>
