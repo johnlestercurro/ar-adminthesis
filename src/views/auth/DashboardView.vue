@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { supabase, isAuthenticated } from '@/utils/supabase';
+import { supabase, isAuthenticated } from '@/utils/supabase'; // Main Supabase client
 import AlertNotification from '@/components/common/AlertNotification.vue';
 import ProfileHeader from '@/components/common/layout/ProfileHeader.vue';
 
@@ -17,7 +17,7 @@ const formAction = ref({
 const vrFile = ref(null);
 
 const userProfile = ref({
-  fullName: 'Unknown User',
+  fullName: 'Profile Unavailable',
   role: 'User',
   initials: '',
   profilePicture: '/default-avatar.png',
@@ -47,7 +47,7 @@ const sidebarItems = [
 ];
 
 const getAvatarText = (fullName) => {
-  if (!fullName) return '';
+  if (!fullName || fullName === 'Profile Unavailable') return 'PU';
   const names = fullName.trim().split(' ');
   return names.length > 1
     ? `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase()
@@ -69,25 +69,42 @@ const fetchUserProfile = async () => {
       .single();
 
     console.log('Profile data:', data, 'Profile error:', profileError);
-    if (profileError || !data) {
-      console.warn('Profile fetch error or no data:', profileError?.message);
-      userProfile.value.fullName = user.email || 'Unknown User';
-      userProfile.value.role = 'User';
-      userProfile.value.initials = getAvatarText(user.email || '');
-      userProfile.value.profilePicture = '/default-avatar.png';
-    } else {
-      userProfile.value.fullName = data.full_name || user.email || 'Unknown User';
-      userProfile.value.role = data.role || 'User';
-      userProfile.value.initials = getAvatarText(data.full_name || user.email);
-      userProfile.value.profilePicture = data.profile_picture || '/default-avatar.png';
+    if (profileError) {
+      console.error('Profile fetch error:', profileError.message);
+      formAction.value.formErrorMessage = `Failed to fetch profile: ${profileError.message}`;
+      showErrorAlert.value = true;
+      userProfile.value.fullName = 'Profile Unavailable';
+      userProfile.value.initials = getAvatarText('Profile Unavailable');
+      return;
     }
+    if (!data) {
+      console.error('No profile data found for user ID:', user.id);
+      formAction.value.formErrorMessage = 'No profile found. Please create a profile.';
+      showErrorAlert.value = true;
+      userProfile.value.fullName = 'Profile Unavailable';
+      userProfile.value.initials = getAvatarText('Profile Unavailable');
+      return;
+    }
+    if (!data.full_name) {
+      console.error('full_name is missing or NULL for user ID:', user.id);
+      formAction.value.formErrorMessage = 'Profile missing full_name. Please update your profile.';
+      showErrorAlert.value = true;
+      userProfile.value.fullName = 'Profile Unavailable';
+      userProfile.value.initials = getAvatarText('Profile Unavailable');
+      return;
+    }
+
+    userProfile.value.fullName = data.full_name;
+    userProfile.value.role = data.role || 'User';
+    userProfile.value.initials = getAvatarText(data.full_name);
+    userProfile.value.profilePicture = data.profile_picture || '/default-avatar.png';
     console.log('UserProfile fetched:', userProfile.value);
   } catch (error) {
     console.error('Error fetching user profile:', error.message);
-    formAction.value.formErrorMessage = 'Failed to load profile. Please log in again.';
+    formAction.value.formErrorMessage = `Failed to load profile: ${error.message}`;
     showErrorAlert.value = true;
-    router.push('/login');
-    throw error;
+    userProfile.value.fullName = 'Profile Unavailable';
+    userProfile.value.initials = getAvatarText('Profile Unavailable');
   }
 };
 

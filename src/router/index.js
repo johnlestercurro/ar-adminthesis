@@ -9,6 +9,7 @@ import ProfileView from '@/views/auth/ProfileView.vue';
 import UsersManagementView from '@/views/auth/UsersManagementView.vue';
 import destinationsView from '@/views/auth/destinationsView.vue';
 import FeedbackView from '@/views/auth/FeedbackView.vue';
+import ResetPassword from '@/views/auth/ResetPassword.vue';
 
 // Helper function to check authentication
 async function isAuthenticated() {
@@ -54,12 +55,6 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/users',
-    name: 'User_Management',
-    component: UsersManagementView,
-    meta: { requiresAuth: true, requiresAdmin: true },
-  },
-  {
     path: '/destinations',
     name: 'Destinations',
     component: destinationsView,
@@ -74,6 +69,12 @@ const routes = [
     name: 'FeedbackView',
     component: FeedbackView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/reset_password',
+    name: 'Reset_Password',
+    component: ResetPassword,
+    meta: { requiresAuth: false },
   },
 ];
 
