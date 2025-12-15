@@ -1,67 +1,69 @@
 <script setup>
-import AlertNotification from '@/components/common/AlertNotification.vue'
-import { ref } from 'vue'
-import { requiredValidator, emailValidator } from '@/utils/validators'
-import { supabase, formActionDefault } from '@/utils/supabase'
-import { useRouter } from 'vue-router' // Add router for redirection
+import AlertNotification from '@/components/common/AlertNotification.vue';
+import { ref } from 'vue';
+import { requiredValidator, emailValidator } from '@/utils/validators';
+import { supabase, formActionDefault } from '@/utils/supabase'; // Main Supabase client
+import { useRouter } from 'vue-router';
 
-const isPasswordVisible = ref(false)
-const refVForm = ref()
+const isPasswordVisible = ref(false);
+const refVForm = ref();
 
 // Form data
 const formDataDefault = {
   email: '',
   password: '',
-}
+};
 
-const formData = ref({ ...formDataDefault })
+const formData = ref({ ...formDataDefault });
 
 // Alert notification states
-const showSuccessAlert = ref(false)
-const showErrorAlert = ref(false)
-const formAction = ref({ ...formActionDefault })
+const showSuccessAlert = ref(false);
+const showErrorAlert = ref(false);
+const formAction = ref({ ...formActionDefault });
 
 // Router for redirection after login
-const router = useRouter()
+const router = useRouter();
 
 // Login function with Supabase
 const onSubmit = async () => {
-  formAction.value = { ...formActionDefault, formProcess: true }
+  formAction.value = { ...formActionDefault, formProcess: true };
+  console.log('Attempting login with email:', formData.value.email);
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: formData.value.email,
       password: formData.value.password,
-    })
-    if (error) throw error
+    });
+    if (error) throw error;
 
     // On successful login
+    console.log('Login successful for email:', formData.value.email);
     formAction.value = {
       formProcess: false,
       formStatus: 200,
       formSuccessMessage: 'Login successful!',
       formErrorMessage: '',
-    }
-    showSuccessAlert.value = true
-    formData.value = { ...formDataDefault } // Reset form
-    router.push('/dashboard') // Redirect to dashboard
+    };
+    showSuccessAlert.value = true;
+    formData.value = { ...formDataDefault }; // Reset form
+    router.push('/dashboard'); // Redirect to dashboard
   } catch (error) {
-    console.error('Error during login:', error)
+    console.error('Error during login:', error.message);
     formAction.value = {
       formProcess: false,
       formStatus: 400,
       formErrorMessage: error.message || 'Login failed. Please try again.',
       formSuccessMessage: '',
-    }
-    showErrorAlert.value = true
+    };
+    showErrorAlert.value = true;
   }
-}
+};
 
 // Form submission handler
 const onFormSubmit = () => {
   refVForm.value?.validate().then(({ valid }) => {
-    if (valid) onSubmit()
-  })
-}
+    if (valid) onSubmit();
+  });
+};
 </script>
 
 <template>
@@ -107,7 +109,9 @@ const onFormSubmit = () => {
 
                   <div class="text-subtitle-1 d-flex align-center justify-space-between text-white">
                     Password
-                    <a class="text-caption text-decoration-none text-blue" href="#">Forgot password?</a>
+                    <RouterLink class="text-caption text-decoration-none text-blue" to="/reset-password">
+                      Forgot password?
+                    </RouterLink>
                   </div>
 
                   <v-text-field
