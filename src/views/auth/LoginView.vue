@@ -57,18 +57,17 @@ const onSubmit = async () => {
   }
 };
 
-// NEW: Sign in with Google
+// NEW: Sign in with Google (added function)
 const signInWithGoogle = async () => {
   formAction.value = { ...formActionDefault, formProcess: true };
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`, // Redirect to dashboard after login
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     });
     if (error) throw error;
-    // No need to handle success here — Supabase redirects automatically
   } catch (error) {
     console.error('Google login error:', error.message);
     formAction.value = {
@@ -149,45 +148,38 @@ const onFormSubmit = () => {
                     :rules="[requiredValidator]"
                   />
 
-                  <v-card color="surface-variant" variant="tonal" class="mb-4">
+                  <v-card color="surface-variant" variant="tonal">
                     <v-card-text class="text-white text-caption">
                       Warning: After 3 failed login attempts, your account will be temporarily locked for 3 hours.
                     </v-card-text>
                   </v-card>
 
-                  <!-- Regular Login Button -->
                   <v-btn
                     type="submit"
                     color="blue"
                     size="large"
                     variant="tonal"
                     block
-                    class="mb-4"
                     :loading="formAction.formProcess"
                   >
                     Log In
                   </v-btn>
 
-                  <!-- NEW: Google Sign-In Button -->
+                  <!-- ONLY ADDITION: Google Sign-In Button (clean, fits your design) -->
                   <v-btn
                     @click="signInWithGoogle"
                     color="white"
                     size="large"
                     variant="outlined"
                     block
-                    class="google-btn"
+                    class="mt-4 google-btn"
                     :loading="formAction.formProcess"
                   >
-                    <v-img
-                      src="https://developers.google.com/identity/images/g-logo.png"
-                      width="20"
-                      height="20"
-                      class="mr-3"
-                    />
+                    <v-icon start class="mr-2">mdi-google</v-icon>
                     Sign in with Google
                   </v-btn>
 
-                  <v-card-text class="text-center mt-6">
+                  <v-card-text class="text-center mt-4">
                     <RouterLink class="router-link text-blue" to="/signup">
                       Sign up now <v-icon icon="mdi-chevron-right" />
                     </RouterLink>
@@ -203,18 +195,91 @@ const onFormSubmit = () => {
 </template>
 
 <style scoped>
-/* Your existing styles remain unchanged */
+.login-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.background-image {
+  background-image: url('@/assets/ar-navigation-bg.jpg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  min-height: 100vh;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 30px;
+  border-radius: 10px;
+  background: rgba(0, 32, 96, 0.95);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.custom-input :deep(input) {
+  color: #ffffff !important;
+}
+
+.custom-input :deep(::placeholder) {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.router-link {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.router-link:hover,
+.router-link:focus,
+.router-link:active {
+  text-decoration: none !important;
+  color: inherit !important;
+}
 
 .google-btn {
-  border: 1px solid #dadce0 !important;
+  border-color: #dadce0 !important;
   color: #3c4043 !important;
-  background-color: white !important;
 }
 
 .google-btn:hover {
   background-color: #f8f9fa !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* Rest of your styles... */
+.fade-slide-enter-active {
+  animation: fade-slide-in 0.6s ease-out;
+}
+
+.fade-slide-leave-active {
+  animation: fade-slide-out 0.4s ease-in;
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@media (max-width: 960px) {
+  .login-card {
+    margin-top: 30px;
+    margin-bottom: 30px;
+  }
+}
 </style>
