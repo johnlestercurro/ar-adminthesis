@@ -26,7 +26,7 @@ const formAction = reactive({ ...formActionDefault })
 const showSuccessAlert = ref(false)
 const showErrorAlert = ref(false)
 
-// Animation trigger
+// Animation trigger + redirect if already logged in
 onMounted(() => {
   // Redirect if already logged in
   supabase.auth.getSession().then(({ data: { session } }) => {
@@ -53,14 +53,14 @@ const nameValidator = (value) => {
   return (value && value.length >= 2) || 'Full name must be at least 2 characters'
 }
 
-// Google Sign-Up
+// Google Sign-Up (redirects to /auth/callback)
 const signUpWithGoogle = async () => {
   formAction.formProcess = true
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/dashboard',
+        redirectTo: window.location.origin + '/auth/callback',  // NEW: Use callback route
       },
     })
     if (error) throw error
@@ -81,7 +81,7 @@ const signUpWithGoogle = async () => {
   }
 }
 
-// Form submission
+// Form submission (email/password)
 const onFormSubmit = () => {
   refVForm.value?.validate().then(async ({ valid }) => {
     if (valid) {
@@ -361,6 +361,4 @@ const onFormSubmit = () => {
 .google-btn:hover {
   background-color: #f8f9fa !important;
 }
-
-/* ... rest of your styles ... */
 </style>
