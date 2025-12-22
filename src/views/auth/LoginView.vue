@@ -1,6 +1,6 @@
 <script setup>
 import AlertNotification from '@/components/common/AlertNotification.vue'
-import { ref, onMounted } from 'vue' // Added onMounted
+import { ref, onMounted } from 'vue'
 import { requiredValidator, emailValidator } from '@/utils/validators'
 import { supabase, formActionDefault } from '@/utils/supabase'
 import { useRouter } from 'vue-router'
@@ -57,18 +57,17 @@ const onSubmit = async () => {
   }
 }
 
-// Google Sign-In with direct redirect
+// Google Sign-In with direct redirect to dashboard
 const signInWithGoogle = async () => {
   formAction.value = { ...formActionDefault, formProcess: true }
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/dashboard', // Direct redirect to dashboard
+        redirectTo: window.location.origin + '/dashboard', // This forces redirect to dashboard after Google login
       },
     })
     if (error) throw error
-    // Supabase handles redirect — no manual push needed here
   } catch (error) {
     console.error('Google login error:', error.message)
     formAction.value = {
@@ -86,13 +85,11 @@ const onFormSubmit = () => {
   })
 }
 
-// NEW: Global auth listener — guarantees redirect to dashboard after Google login
+// Safety net: Catch login event and redirect if needed
 onMounted(() => {
   supabase.auth.onAuthStateChange((event, session) => {
-    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-      if (router.currentRoute.value.path !== '/dashboard') {
-        router.push('/dashboard')
-      }
+    if (event === 'SIGNED_IN' && session) {
+      router.push('/dashboard')
     }
   })
 })
