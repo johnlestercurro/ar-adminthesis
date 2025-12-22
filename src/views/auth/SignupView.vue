@@ -2,15 +2,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { requiredValidator, emailValidator } from '@/utils/validators'
 import { supabase, formActionDefault } from '@/utils/supabase.js'
-import AlertNotification from '@/components/common/AlertNotification.vue'
 import { useRouter } from 'vue-router'
+import AlertNotification from '@/components/common/AlertNotification.vue'
 
-// UI states
 const visible = ref(false)
 const formVisible = ref(false)
 const refVForm = ref()
 
-// Router for redirection
 const router = useRouter()
 
 const formDataDefault = {
@@ -30,6 +28,13 @@ const showErrorAlert = ref(false)
 
 // Animation trigger
 onMounted(() => {
+  // Redirect if already logged in
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      router.push('/dashboard')
+    }
+  })
+
   setTimeout(() => {
     formVisible.value = true
   }, 200)
@@ -48,7 +53,7 @@ const nameValidator = (value) => {
   return (value && value.length >= 2) || 'Full name must be at least 2 characters'
 }
 
-// Google Sign-Up (same logic as before, just renamed)
+// Google Sign-Up
 const signUpWithGoogle = async () => {
   formAction.formProcess = true
   try {
@@ -59,17 +64,24 @@ const signUpWithGoogle = async () => {
       },
     })
     if (error) throw error
-    // No manual redirect needed — Supabase handles it
   } catch (error) {
     console.error('Google signup error:', error.message)
-    formAction.formErrorMessage = error.message || 'Google signup failed.'
+    let friendlyMessage = 'Google signup failed. Please try again.'
+    if (error.message.includes('popup')) {
+      friendlyMessage = 'Popup blocked. Please allow popups for this site.'
+    } else if (error.message.includes('network')) {
+      friendlyMessage = 'Network issue. Please check your connection.'
+    } else if (error.message.includes('already registered')) {
+      friendlyMessage = 'This email is already registered. Please log in.'
+    }
+    formAction.formErrorMessage = friendlyMessage
     showErrorAlert.value = true
   } finally {
     formAction.formProcess = false
   }
 }
 
-// Submit Handler (your original email/password signup logic)
+// Form submission
 const onFormSubmit = () => {
   refVForm.value?.validate().then(async ({ valid }) => {
     if (valid) {
@@ -99,8 +111,9 @@ const onFormSubmit = () => {
         }
 
         if (!data.user.confirmed_at) {
-          formAction.formSuccessMessage = 'Registration successful! Please confirm your email to log in.'
+          formAction.formSuccessMessage = 'Registration successful! Please check your email to confirm.'
           showSuccessAlert.value = true
+          formAction.formProcess = true // Disable form after success
         } else {
           const { error: profileError } = await supabase
             .from('profiles')
@@ -122,6 +135,7 @@ const onFormSubmit = () => {
             formAction.formSuccessMessage = 'Registration successful! Please log in.'
             showSuccessAlert.value = true
           }
+          formAction.formProcess = true // Disable form after success
         }
 
         Object.assign(formData.value, { ...formDataDefault })
@@ -132,7 +146,9 @@ const onFormSubmit = () => {
         showSuccessAlert.value = false
         formAction.formSuccessMessage = ''
       } finally {
-        formAction.formProcess = false
+        if (!showSuccessAlert.value) {
+          formAction.formProcess = false
+        }
       }
     }
   })
@@ -285,7 +301,6 @@ const onFormSubmit = () => {
 </template>
 
 <style scoped>
-/* Your existing styles remain unchanged */
 .signup-container {
   min-height: 100vh;
   display: flex;
