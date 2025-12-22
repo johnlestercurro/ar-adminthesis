@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router'; // Added useRoute
+import { useRouter, useRoute } from 'vue-router';
 import { supabase, isAuthenticated } from '@/utils/supabase';
 import AlertNotification from '@/components/common/AlertNotification.vue';
 import ProfileHeader from '@/components/common/layout/ProfileHeader.vue';
 
 const router = useRouter();
-const route = useRoute(); // New: to access URL query params
+const route = useRoute();
 
 const drawer = ref(false);
 const loading = ref(true);
@@ -154,17 +154,13 @@ const handleImageError = () => {
 onMounted(async () => {
   console.log('Dashboard onMounted');
 
-  // NEW: Detect and bypass Supabase Google OAuth error in URL
+  // Backup: If error somehow slips through, hard redirect to clean dashboard
   if (route.query.error || route.query.error_description) {
-    console.warn('Supabase OAuth error detected in URL — cleaning and redirecting');
-    // Clean the URL (remove query params and hash)
-    history.replaceState({}, '', window.location.pathname);
-    // Redirect to clean dashboard
-    router.replace('/dashboard');
-    return; // Stop further execution
+    console.warn('Error detected in dashboard mount - forcing clean redirect');
+    window.location.href = '/dashboard';
+    return;
   }
 
-  // Normal dashboard initialization
   try {
     const authenticated = await isAuthenticated();
     if (!authenticated) {
@@ -280,5 +276,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Your existing styles remain unchanged */
+.dashboard-container {
+  background: linear-gradient(135deg, #F5F6F5 0%, #E8F5E9 100%);
+  overflow: auto;
+}
+
+/* ... rest of your styles ... */
 </style>
