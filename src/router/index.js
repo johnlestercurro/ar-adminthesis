@@ -11,6 +11,14 @@ import destinationsView from '@/views/auth/destinationsView.vue'
 import FeedbackView from '@/views/auth/FeedbackView.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
 
+// Helper function to check authentication
+async function isAuthenticated() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  return !!session
+}
+
 const routes = [
   {
     path: '/',
@@ -77,24 +85,20 @@ const router = createRouter({
   routes,
 })
 
-// NEW: Global auth listener — safe way to handle login events (including Google)
-supabase.auth.onAuthStateChange((event, session) => {
-  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-    if (router.currentRoute.value.path === '/' || router.currentRoute.value.path === '/login') {
-      router.push('/dashboard')
-    }
-  }
+// NEW: Clean URL after navigation (removes ?error=... or #access_token from Google redirect)
+router.afterEach(() => {
+  history.replaceState({}, '', window.location.pathname)
 })
 
-// Updated beforeEach — avoids Supabase NULL column bug by not calling getSession() on every navigation
+// Your original beforeEach guard (unchanged)
 router.beforeEach(async (to, from, next) => {
   console.log(`Navigating to: ${to.path}, Meta:`, to.meta)
 
+  // Check if route requires authentication
   if (to.meta.requiresAuth) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) {
+    const authenticated = await isAuthenticated()
+    console.log('Authentication check:', authenticated)
+    if (!authenticated) {
       console.warn('User not authenticated, redirecting to /')
       return next('/')
     }
@@ -129,6 +133,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // Allow navigation for public routes or authenticated users
   next()
 })
 
