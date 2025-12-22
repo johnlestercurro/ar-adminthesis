@@ -242,6 +242,19 @@ const changePassword = async () => {
   }
 };
 
+// NEW: Log Out function
+const logout = async () => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    router.push('/login');
+  } catch (error) {
+    console.error('Error logging out:', error.message);
+    formAction.value.formErrorMessage = 'Failed to log out.';
+    showErrorAlert.value = true;
+  }
+};
+
 // Handle image load error
 const handleImageError = () => {
   console.warn('Profile picture failed to load, using default avatar');
@@ -312,6 +325,17 @@ onMounted(async () => {
             <p class="text-caption">{{ user.email }}</p>
             <p class="text-caption">{{ user.phone || 'No phone number' }}</p>
           </v-card-text>
+
+          <!-- NEW: Log Out Button (placed at the bottom of the profile card) -->
+          <v-btn
+            color="error"
+            variant="tonal"
+            block
+            class="mt-6"
+            @click="logout"
+          >
+            Log Out
+          </v-btn>
         </v-card>
       </v-col>
 
@@ -438,9 +462,9 @@ onMounted(async () => {
 .profile-image {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Ensure image scales without distortion */
-  object-position: center; /* Center the image */
-  border-radius: 50%; /* Match v-avatar's circular shape */
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
 }
 
 .fade-in {
