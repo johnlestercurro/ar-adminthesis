@@ -1,98 +1,98 @@
 <script setup>
-import AlertNotification from '@/components/common/AlertNotification.vue'
-import { ref, onMounted } from 'vue'
-import { requiredValidator, emailValidator } from '@/utils/validators'
-import { supabase, formActionDefault } from '@/utils/supabase'
-import { useRouter } from 'vue-router'
+import AlertNotification from '@/components/common/AlertNotification.vue';
+import { ref, onMounted } from 'vue';
+import { requiredValidator, emailValidator } from '@/utils/validators';
+import { supabase, formActionDefault } from '@/utils/supabase';
+import { useRouter } from 'vue-router';
 
-const isPasswordVisible = ref(false)
-const refVForm = ref()
+const isPasswordVisible = ref(false);
+const refVForm = ref();
 
 // Form data
 const formDataDefault = {
   email: '',
   password: '',
-}
+};
 
-const formData = ref({ ...formDataDefault })
+const formData = ref({ ...formDataDefault });
 
 // Alert notification states
-const showSuccessAlert = ref(false)
-const showErrorAlert = ref(false)
-const formAction = ref({ ...formActionDefault })
+const showSuccessAlert = ref(false);
+const showErrorAlert = ref(false);
+const formAction = ref({ ...formActionDefault });
 
 // Router for redirection after login
-const router = useRouter()
+const router = useRouter();
 
 // Regular email/password login
 const onSubmit = async () => {
-  formAction.value = { ...formActionDefault, formProcess: true }
-  console.log('Attempting login with email:', formData.value.email)
+  formAction.value = { ...formActionDefault, formProcess: true };
+  console.log('Attempting login with email:', formData.value.email);
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: formData.value.email,
       password: formData.value.password,
-    })
-    if (error) throw error
+    });
+    if (error) throw error;
 
-    console.log('Login successful for email:', formData.value.email)
+    console.log('Login successful for email:', formData.value.email);
     formAction.value = {
       formProcess: false,
       formStatus: 200,
       formSuccessMessage: 'Login successful!',
       formErrorMessage: '',
-    }
-    showSuccessAlert.value = true
-    formData.value = { ...formDataDefault }
-    router.push('/dashboard')
+    };
+    showSuccessAlert.value = true;
+    formData.value = { ...formDataDefault };
+    router.push('/dashboard');
   } catch (error) {
-    console.error('Error during login:', error.message)
+    console.error('Error during login:', error.message);
     formAction.value = {
       formProcess: false,
       formStatus: 400,
       formErrorMessage: error.message || 'Login failed. Please try again.',
       formSuccessMessage: '',
-    }
-    showErrorAlert.value = true
+    };
+    showErrorAlert.value = true;
   }
-}
+};
 
 // Google Sign-In with direct redirect to dashboard
 const signInWithGoogle = async () => {
-  formAction.value = { ...formActionDefault, formProcess: true }
+  formAction.value = { ...formActionDefault, formProcess: true };
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/dashboard', // This forces redirect to dashboard after Google login
+        redirectTo: window.location.origin + '/dashboard',  // This forces redirect to dashboard after Google login
       },
-    })
-    if (error) throw error
+    });
+    if (error) throw error;
   } catch (error) {
-    console.error('Google login error:', error.message)
+    console.error('Google login error:', error.message);
     formAction.value = {
       formProcess: false,
       formErrorMessage: error.message || 'Google login failed.',
-    }
-    showErrorAlert.value = true
+    };
+    showErrorAlert.value = true;
   }
-}
+};
 
 // Form submission handler
 const onFormSubmit = () => {
   refVForm.value?.validate().then(({ valid }) => {
-    if (valid) onSubmit()
-  })
-}
+    if (valid) onSubmit();
+  });
+};
 
 // Safety net: Catch login event and redirect if needed
 onMounted(() => {
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session) {
-      router.push('/dashboard')
+      router.push('/dashboard');
     }
-  })
-})
+  });
+});
 </script>
 
 <template>
@@ -138,10 +138,7 @@ onMounted(() => {
 
                   <div class="text-subtitle-1 d-flex align-center justify-space-between text-white">
                     Password
-                    <RouterLink
-                      class="text-caption text-decoration-none text-blue"
-                      to="/reset-password"
-                    >
+                    <RouterLink class="text-caption text-decoration-none text-blue" to="/reset-password">
                       Forgot password?
                     </RouterLink>
                   </div>
@@ -162,8 +159,7 @@ onMounted(() => {
 
                   <v-card color="surface-variant" variant="tonal">
                     <v-card-text class="text-white text-caption">
-                      Warning: After 3 failed login attempts, your account will be temporarily
-                      locked for 3 hours.
+                      Warning: After 3 failed login attempts, your account will be temporarily locked for 3 hours.
                     </v-card-text>
                   </v-card>
 
