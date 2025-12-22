@@ -1,6 +1,6 @@
 <script setup>
 import AlertNotification from '@/components/common/AlertNotification.vue';
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { requiredValidator, emailValidator } from '@/utils/validators';
 import { supabase, formActionDefault } from '@/utils/supabase';
 import { useRouter } from 'vue-router';
@@ -27,7 +27,6 @@ const router = useRouter();
 // Regular email/password login
 const onSubmit = async () => {
   formAction.value = { ...formActionDefault, formProcess: true };
-  console.log('Attempting login with email:', formData.value.email);
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: formData.value.email,
@@ -35,7 +34,6 @@ const onSubmit = async () => {
     });
     if (error) throw error;
 
-    console.log('Login successful for email:', formData.value.email);
     formAction.value = {
       formProcess: false,
       formStatus: 200,
@@ -57,42 +55,12 @@ const onSubmit = async () => {
   }
 };
 
-// Google Sign-In with direct redirect to dashboard
-const signInWithGoogle = async () => {
-  formAction.value = { ...formActionDefault, formProcess: true };
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/dashboard',  // This forces redirect to dashboard after Google login
-      },
-    });
-    if (error) throw error;
-  } catch (error) {
-    console.error('Google login error:', error.message);
-    formAction.value = {
-      formProcess: false,
-      formErrorMessage: error.message || 'Google login failed.',
-    };
-    showErrorAlert.value = true;
-  }
-};
-
 // Form submission handler
 const onFormSubmit = () => {
   refVForm.value?.validate().then(({ valid }) => {
     if (valid) onSubmit();
   });
 };
-
-// Safety net: Catch login event and redirect if needed
-onMounted(() => {
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      router.push('/dashboard');
-    }
-  });
-});
 </script>
 
 <template>
@@ -170,27 +138,15 @@ onMounted(() => {
                     variant="tonal"
                     block
                     :loading="formAction.formProcess"
+                    :disabled="formAction.formProcess"
                   >
                     Log In
                   </v-btn>
 
-                  <!-- Google Sign-In Button -->
-                  <v-btn
-                    @click="signInWithGoogle"
-                    color="white"
-                    size="large"
-                    variant="outlined"
-                    block
-                    class="mt-4 google-btn"
-                    :loading="formAction.formProcess"
-                  >
-                    <v-icon start class="mr-2">mdi-google</v-icon>
-                    Sign in with Google
-                  </v-btn>
-
-                  <v-card-text class="text-center mt-4">
+                  <!-- Already have an account link (optional, but nice for flow) -->
+                  <v-card-text class="text-center mt-6">
                     <RouterLink class="router-link text-blue" to="/signup">
-                      Sign up now <v-icon icon="mdi-chevron-right" />
+                      Don't have an account? Sign up now <v-icon icon="mdi-chevron-right" />
                     </RouterLink>
                   </v-card-text>
                 </v-card-text>
@@ -244,15 +200,6 @@ onMounted(() => {
 .router-link:active {
   text-decoration: none !important;
   color: inherit !important;
-}
-
-.google-btn {
-  border-color: #dadce0 !important;
-  color: #3c4043 !important;
-}
-
-.google-btn:hover {
-  background-color: #f8f9fa !important;
 }
 
 .fade-slide-enter-active {
