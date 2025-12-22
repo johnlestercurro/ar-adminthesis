@@ -11,14 +11,6 @@ import destinationsView from '@/views/auth/destinationsView.vue'
 import FeedbackView from '@/views/auth/FeedbackView.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
 
-// Helper function to check authentication
-async function isAuthenticated() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return !!session
-}
-
 const routes = [
   {
     path: '/',
@@ -85,25 +77,24 @@ const router = createRouter({
   routes,
 })
 
+// NEW: Global auth listener — safe way to handle login events (including Google)
+supabase.auth.onAuthStateChange((event, session) => {
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+    if (router.currentRoute.value.path === '/' || router.currentRoute.value.path === '/login') {
+      router.push('/dashboard')
+    }
+  }
+})
+
+// Updated beforeEach — avoids Supabase NULL column bug by not calling getSession() on every navigation
 router.beforeEach(async (to, from, next) => {
   console.log(`Navigating to: ${to.path}, Meta:`, to.meta)
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const authenticated = !!session
-
-  // FIX: After Google Sign-In, user is authenticated but lands on / or /login → redirect to dashboard
-  if (authenticated && (to.path === '/' || to.path === '/login')) {
-    console.log('User is authenticated (Google login complete), redirecting to /dashboard')
-    return next('/dashboard')
-  }
-
-  // Your original authentication and admin checks (unchanged)
   if (to.meta.requiresAuth) {
-    const authenticated = await isAuthenticated()
-    console.log('Authentication check:', authenticated)
-    if (!authenticated) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session) {
       console.warn('User not authenticated, redirecting to /')
       return next('/')
     }
@@ -138,8 +129,8 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Allow navigation
   next()
 })
 
 export default router
+
