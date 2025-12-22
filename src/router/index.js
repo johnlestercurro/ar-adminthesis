@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 import LoginView from '@/views/auth/LoginView.vue'
 import SignupView from '@/views/auth/SignupView.vue'
-import DashboardView from '@/views/auth/DashboardView.vue'  // Fixed: Capital "D" to match actual file
+import DashboardView from '@/views/auth/DashboardView.vue'
 import SettingsView from '@/views/auth/SettingsView.vue'
 import AboutusView from '@/views/auth/AboutusView.vue'
 import ProfileView from '@/views/auth/ProfileView.vue'
@@ -11,12 +11,25 @@ import destinationsView from '@/views/auth/destinationsView.vue'
 import FeedbackView from '@/views/auth/FeedbackView.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
 
-// Helper function to check authentication
+// Helper: Check if user is authenticated
 async function isAuthenticated() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { data: { session } } = await supabase.auth.getSession()
   return !!session
+}
+
+// Helper: Check if user is Admin
+async function isAdmin() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (error || !profile) return false
+  return profile.role === 'Admin'
 }
 
 const routes = [
@@ -24,12 +37,18 @@ const routes = [
     path: '/',
     name: 'Login',
     component: LoginView,
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, guestOnly: true },
   },
   {
     path: '/signup',
     name: 'Signup',
     component: SignupView,
+    meta: { requiresAuth: false, guestOnly: true },
+  },
+  {
+    path: '/reset_password',
+    name: 'ResetPassword',
+    component: ResetPassword,
     meta: { requiresAuth: false },
   },
   {
@@ -57,26 +76,21 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/feedback',
+    name: 'Feedback',
+    component: FeedbackView,
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/destinations',
     name: 'Destinations',
     component: destinationsView,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
+  // Redirect unknown routes to login
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/', // Redirect unknown routes to login
-  },
-  {
-    path: '/feedback',
-    name: 'FeedbackView',
-    component: FeedbackView,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/reset_password',
-    name: 'Reset_Password',
-    component: ResetPassword,
-    meta: { requiresAuth: false },
+    redirect: '/',
   },
 ]
 
@@ -85,55 +99,39 @@ const router = createRouter({
   routes,
 })
 
-// NEW: Clean URL after navigation (removes ?error=... or #access_token from Google redirect)
+// Clean up OAuth redirect parameters (Google, etc.)
 router.afterEach(() => {
+  // Remove any query params or hash from URL
   history.replaceState({}, '', window.location.pathname)
 })
 
-// Your original beforeEach guard (unchanged)
 router.beforeEach(async (to, from, next) => {
-  console.log(`Navigating to: ${to.path}, Meta:`, to.meta)
+  console.log(`Navigating to: ${to.path} (from: ${from.path})`)
 
-  // Check if route requires authentication
-  if (to.meta.requiresAuth) {
-    const authenticated = await isAuthenticated()
-    console.log('Authentication check:', authenticated)
-    if (!authenticated) {
-      console.warn('User not authenticated, redirecting to /')
-      return next('/')
-    }
+  const authenticated = await isAuthenticated()
 
-    // Check if route requires Admin role
-    if (to.meta.requiresAdmin) {
-      try {
-        const { data: userData } = await supabase.auth.getUser()
-        const userId = userData?.user?.id
-        console.log('Authenticated user ID:', userId)
-        if (!userId) {
-          console.warn('No user ID found, redirecting to /')
-          return next('/')
-        }
+  // Prevent logged-in users from accessing login/signup pages
+  if (to.meta.guestOnly && authenticated) {
+    console.log('User already authenticated, redirecting to dashboard')
+    return next('/dashboard')
+  }
 
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .single()
-        console.log('Profile fetch response:', { profileData, profileError })
+  // Protect authenticated routes
+  if (to.meta.requiresAuth && !authenticated) {
+    console.warn('Route requires auth - redirecting to login')
+    return next('/')
+  }
 
-        if (profileError || !profileData || profileData.role !== 'Admin') {
-          console.warn('User is not Admin or profile fetch failed, redirecting to /dashboard')
-          return next('/dashboard')
-        }
-        console.log('User is Admin, allowing access')
-      } catch (error) {
-        console.error('Error checking user role:', error.message)
-        return next('/dashboard')
-      }
+  // Admin-only routes
+  if (to.meta.requiresAdmin) {
+    const admin = await isAdmin()
+    if (!admin) {
+      console.warn('User is not Admin - redirecting to dashboard')
+      return next('/dashboard')
     }
   }
 
-  // Allow navigation for public routes or authenticated users
+  // All good → proceed
   next()
 })
 
