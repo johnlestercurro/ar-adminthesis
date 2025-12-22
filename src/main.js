@@ -9,7 +9,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import App from './App.vue'
 import router from './router'
-import { supabase } from '@/utils/supabase'  // Make sure this import is here
+import { supabase } from '@/utils/supabase'  // Import supabase client
 
 const app = createApp(App)
 
@@ -22,7 +22,7 @@ app.use(createPinia())
 app.use(router)
 app.use(vuetify)
 
-// NEW: Global listener to redirect to dashboard after Google login
+// NEW: Global auth listener — catches Google login and redirects to dashboard
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session) {
     router.push('/dashboard');
