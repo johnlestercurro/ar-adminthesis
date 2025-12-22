@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 import LoginView from '@/views/auth/LoginView.vue'
 import SignupView from '@/views/auth/SignupView.vue'
-import DashboardView from '@/views/auth/dashboardView.vue'  // Fixed: lowercase "d" to match file name
+import DashboardView from '@/views/auth/DashboardView.vue'  // Fixed: Capital "D" to match most common naming
 import SettingsView from '@/views/auth/SettingsView.vue'
 import AboutusView from '@/views/auth/AboutusView.vue'
 import ProfileView from '@/views/auth/ProfileView.vue'
