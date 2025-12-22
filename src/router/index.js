@@ -6,10 +6,10 @@ import DashboardView from '@/views/auth/DashboardView.vue'
 import SettingsView from '@/views/auth/SettingsView.vue'
 import AboutusView from '@/views/auth/AboutusView.vue'
 import ProfileView from '@/views/auth/ProfileView.vue'
-import UsersManagementView from '@/views/auth/UsersManagementView.vue'
 import destinationsView from '@/views/auth/destinationsView.vue'
 import FeedbackView from '@/views/auth/FeedbackView.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
+import AuthCallback from '@/views/auth/AuthCallback.vue'  // NEW: Import the callback view
 
 // Helper: Check if user is authenticated
 async function isAuthenticated() {
@@ -52,6 +52,12 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/auth/callback',  // NEW: OAuth callback route
+    name: 'AuthCallback',
+    component: AuthCallback,
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: DashboardView,
@@ -87,7 +93,7 @@ const routes = [
     component: destinationsView,
     meta: { requiresAuth: true, requiresAdmin: true },
   },
-  // Redirect unknown routes to login
+  // Catch-all redirect to login
   {
     path: '/:pathMatch(.*)*',
     redirect: '/',
@@ -99,9 +105,8 @@ const router = createRouter({
   routes,
 })
 
-// Clean up OAuth redirect parameters (Google, etc.)
+// Clean URL after navigation (remove query params like ?error=...)
 router.afterEach(() => {
-  // Remove any query params or hash from URL
   history.replaceState({}, '', window.location.pathname)
 })
 
@@ -110,7 +115,7 @@ router.beforeEach(async (to, from, next) => {
 
   const authenticated = await isAuthenticated()
 
-  // Prevent logged-in users from accessing login/signup pages
+  // Prevent logged-in users from accessing login/signup
   if (to.meta.guestOnly && authenticated) {
     console.log('User already authenticated, redirecting to dashboard')
     return next('/dashboard')
@@ -131,7 +136,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // All good → proceed
   next()
 })
 
