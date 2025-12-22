@@ -2,11 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 import LoginView from '@/views/auth/LoginView.vue'
 import SignupView from '@/views/auth/SignupView.vue'
-import DashboardView from '@/views/auth/DashboardView.vue'  // Fixed: Capital "D" to match most common naming
+import DashboardView from '@/views/auth/dashboardView.vue'  // Correct: lowercase "d" to match your file
 import SettingsView from '@/views/auth/SettingsView.vue'
 import AboutusView from '@/views/auth/AboutusView.vue'
 import ProfileView from '@/views/auth/ProfileView.vue'
-import UsersManagementView from '@/views/auth/UsersManagementView.vue'
+import UsersManagementView from '@//views/auth/UsersManagementView.vue'
 import destinationsView from '@/views/auth/destinationsView.vue'
 import FeedbackView from '@/views/auth/FeedbackView.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
@@ -33,7 +33,7 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
-    path: '/Dashboard',
+    path: '/dashboard',
     name: 'Dashboard',
     component: DashboardView,
     meta: { requiresAuth: true },
@@ -85,7 +85,7 @@ const router = createRouter({
   routes,
 })
 
-// NEW: Clean URL after navigation (removes ?error=... or #access_token from Google redirect)
+// Clean URL after navigation (removes ?error=... or #access_token from Google redirect)
 router.afterEach(() => {
   history.replaceState({}, '', window.location.pathname)
 })
