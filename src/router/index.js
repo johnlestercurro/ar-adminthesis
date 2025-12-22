@@ -33,7 +33,7 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
-    path: '/dashboard',
+    path: '/Dashboard',
     name: 'Dashboard',
     component: DashboardView,
     meta: { requiresAuth: true },
